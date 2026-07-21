@@ -9,18 +9,23 @@ namespace x86a {
     public:
         enum Error{
             None=0,
-            BadInstruction
+            UnexpectedSymbol,
+            InvalidImmediate
         };
         struct ErrorType{
-            Token token;
+            std::string_view data;
             uint32_t line;
             uint32_t column;
             Error error;
         };
 
         std::optional<ErrorType> tokenize(const ASMFile& file);
+
+        const ASMFile* getFile() const noexcept{return m_File;}
         const std::vector<Token>& getTokens()const noexcept{return m_Tokens;}
+
     private:
+        const ASMFile* m_File=nullptr;
         std::vector<Token> m_Tokens;
     };
 }

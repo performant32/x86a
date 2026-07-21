@@ -4,10 +4,11 @@
 
 class ASMFile{
 public:
-    ASMFile(const char* file);
-    const std::string& getPath()const noexcept{return m_Path;}
+    std::optional<std::string> open(std::string_view path);
+
+    const std::filesystem::path& getPath()const noexcept{return m_Path;}
     const std::vector<char>& getData()const noexcept{return m_Data;}
 private:
-    std::string m_Path;
+    std::filesystem::path m_Path;
     std::vector<char> m_Data;
 };

@@ -5,12 +5,16 @@
 namespace x86a{
     class Token{
     public:
-        enum TokenType{
+        enum Type{
             Eof,
             Instruction,
+            Symbol,
             String,
+            Separator,
             Imm8,
             Imm16,
+            Imm32,
+            Imm64,
             Mem8,
             Mem16,
             Mem48,
@@ -18,15 +22,15 @@ namespace x86a{
             Reg16
         };
 
-        Token(uint32_t start, uint32_t end, TokenType type);
-        static const char* getTokenName(TokenType type);
+        Token(uint32_t start, uint32_t end, Token::Type type);
+        static const char* getTokenName(Token::Type type);
 
         uint32_t getStart()const noexcept{return m_Start;}
         uint32_t getEnd()const noexcept{return m_End;}
-        TokenType getTokenType()const noexcept{return m_TokenType;}
+        Token::Type getTokenType()const noexcept{return m_TokenType;}
     private:
         uint32_t m_Start;
         uint32_t m_End;
-        TokenType m_TokenType;
+        Token::Type m_TokenType;
     };
 }
