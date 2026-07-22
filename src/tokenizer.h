@@ -2,6 +2,7 @@
 
 
 #include "asm_file.h"
+#include "instruction_set.h"
 #include "token.h"
 
 namespace x86a {
@@ -19,7 +20,8 @@ namespace x86a {
             Error error;
         };
 
-        std::optional<ErrorType> tokenize(const ASMFile& file);
+        std::optional<ErrorType> tokenize(const InstructionSet* instruction_set, const ASMFile& file);
+        Token peek(size_t at)const noexcept;
 
         const ASMFile* getFile() const noexcept{return m_File;}
         const std::vector<Token>& getTokens()const noexcept{return m_Tokens;}

@@ -2,6 +2,7 @@
 
 #include "tokenizer.h"
 #include "instruction_set.h"
+#include "section_container.h"
 
 namespace x86a{
     // validates instruction set along with section/symbol generation
@@ -17,10 +18,11 @@ namespace x86a{
         };
     public:
         SectionGenerator(const InstructionSet& instruction_set);
-        std::optional<Error> generate(const Tokenizer& tokenizer);
+        /// @brief returns true if success and false if failed. Output contains sections with their respective data
+        bool generate(const Tokenizer& tokenizer, SectionContainer& output);
     private:
         const InstructionSet* m_InstructionSet=nullptr;
         const Tokenizer* m_Tokenizer=nullptr;
-        std::unordered_map<std::string_view, uint64_t> m_Sections;
+        std::unordered_map<std::string_view, std::vector<Section>> m_Sections;
     };
 }

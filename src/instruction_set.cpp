@@ -11,16 +11,25 @@ namespace x86a{
     I8086::I8086(){
         getDefaultLogger()->debug("Initializing I8086 instruction set");
 
+        m_Registers.insert(std::make_pair("di", (Register){Register::Type::GeneralPurpose, 16}));
+        m_Registers.insert(std::make_pair("ax", (Register){Register::Type::GeneralPurpose, 16}));
         Instruction mov_r8_r8{0x88, "mov", 
             std::vector{
-                Operand{false, 8},
-                Operand{false, 8}
+                Operand{AddressingMode::Register, 16},
+                Operand{AddressingMode::Immediate, 8}
             }
         };
         m_Instructions.insert(std::make_pair("mov", mov_r8_r8));
 
     }
-    std::vector<Instruction> InstructionSet::getInstructionsFromMnemonic(std::string_view mnemonic){
-        return {};
+    InstructionSet::InstructionIterator InstructionSet::getInstructionsFromMnemonic(std::string_view mnemonic)const{
+        auto it = m_Instructions.find(mnemonic);
+        if(it == m_Instructions.end())return {};
+        return it;
+    }
+    const Register* InstructionSet::getRegister(std::string_view name)const noexcept{
+        auto it = m_Registers.find(name);
+        if(it == m_Registers.cend())return nullptr;
+        return &it->second;
     }
 }

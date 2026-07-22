@@ -4,14 +4,18 @@
 #include "token.h"
 
 namespace x86a {
+    Token Tokenizer::peek(size_t at)const noexcept{
+        if(at >= m_Tokens.size())return Token{0,0,Token::Type::Eof};
+        return m_Tokens[at];
+    }
     // TODO: handle preprocessor directives
-    std::optional<Tokenizer::ErrorType> Tokenizer::tokenize(const ASMFile& file){
+    std::optional<Tokenizer::ErrorType> Tokenizer::tokenize(const InstructionSet* instruction_set, const ASMFile& file){
         m_File = &file;
         const std::vector<char>& data = file.getData();
         uint32_t line = 1;
         uint32_t column = 1;
 
-        auto peek = [data](int at){
+        auto peek = [&data](int at){
             if(at < data.size())return data[at];
             return '\0';
         };
@@ -24,7 +28,6 @@ namespace x86a {
             }
             return digit >= '0' && digit <= '9';
         };
-
 
         auto extract_number = [](char digit, int base){
             if(digit >= '0' && digit <= '9')return digit - '0';
@@ -63,12 +66,22 @@ namespace x86a {
                 while(i < data.size() && std::isalpha(data[i]))
                     i++;
                 size_t str_end = i;
-                Token token(str_start, str_end, Token::Type::String);
+                std::string_view str{data.data() + str_start, str_end - str_start};
+                bool is_instruction = instruction_set->getInstructionsFromMnemonic(str) != instruction_set->getInstructionsEndIterator();
+                Token::Type type = Token::Type::Instruction;
+                if(!is_instruction){
+                    if(auto reg = instruction_set->getRegister(str)){
+                        type = Token::getRegisterTypeFromDataWidth(reg->width);
+                        getDefaultLogger()->debug("IS REGISTER {} {}", str, Token::getTokenName(type));
+                    }
+                    else
+                    type = Token::Type::String;
+                }
+                Token token(str_start, str_end, type);
                 m_Tokens.emplace_back(token);
                 continue;
             }
             if(std::isdigit(c)){
-                // TODO: handle bases
                 int base = 10;
                 if(c == '0'){
                     switch(peek(i+1)){

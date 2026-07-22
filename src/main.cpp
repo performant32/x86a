@@ -2,8 +2,10 @@
 #include "main.h"
 #include "asm_file.h"
 #include "default_logger.h"
+#include "section_container.h"
 #include "instruction_set.h"
 #include "section_generator.h"
+#include "code_generator.h"
 #include "tokenizer.h"
 
 using namespace x86a;
@@ -39,6 +41,7 @@ namespace x86a{
             }
             sources.emplace_back(arg);
         }
+        I8086 instruction_set;
 
         bool tokenizer_stage_failed = false;
         std::vector<ASMFile> files;
@@ -53,14 +56,14 @@ namespace x86a{
             }
             getDefaultLogger()->debug("Tokenizing {0}", file.getPath().string());
             Tokenizer tokenizer;
-            if(auto result = tokenizer.tokenize(file)){
+            if(auto result = tokenizer.tokenize(&instruction_set, file)){
                 Tokenizer::ErrorType error = result.value();
                 getDefaultLogger()->error("{}:\tError: {}:{}, {}", file.getPath().c_str(), error.line, error.column, error.data);
                 tokenizer_stage_failed = true;
             }
             for(const auto& token : tokenizer.getTokens()){
                 std::string_view str{file.getData().data() + token.getStart(), token.getEnd() - token.getStart()};
-                getDefaultLogger()->debug("Token type {}, data {}", Token::getTokenName(token.getTokenType()), str);
+                getDefaultLogger()->debug("Token type {}, data {}", Token::getTokenName(token.getType()), str);
             }
             tokenizers.emplace_back(std::move(tokenizer));
         }
@@ -70,16 +73,35 @@ namespace x86a{
         }
 
         bool symbol_generation_failed = false;
-        I8086 instruction_set;
-        SectionGenerator generator{instruction_set};
+        SectionGenerator section_generator{instruction_set};
+        std::vector<SectionContainer> sections;
         for(const auto& tokenizer : tokenizers){
-            getDefaultLogger()->log("Generating symbol table for {0}", tokenizer.getFile()->getPath().string());
-            if(auto result = generator.generate(tokenizer)){
-
+            getDefaultLogger()->log("Generating symbol table for {0}\n\n", tokenizer.getFile()->getPath().string());
+            SectionContainer section(tokenizer.getFile());
+            if(!section_generator.generate(tokenizer, section)){
+                getDefaultLogger()->error("Failed building {}", tokenizer.getFile()->getPath().string());
+                symbol_generation_failed = true;
             }
+            sections.emplace_back(std::move(section));
         }
 
         if(symbol_generation_failed){
+            getDefaultLogger()->error("Exiting with code {}", ExitCode::SymbolGenerationFailed);
+            return ExitCode::SymbolGenerationFailed;
+        }
+
+        bool code_generation_failed = false;
+        CodeGenerator code_generator;
+        // TODO: pass flags to generator
+        for(const auto& section_map : sections){
+            const auto& path = section_map.getFile();
+            auto file_output = "";
+            if(auto result = code_generator.generate(section_map, file_output)){
+                getDefaultLogger()->error("Exiting with code {}", ExitCode::SymbolGenerationFailed);
+            }
+
+        }
+        if(code_generation_failed == true){
             getDefaultLogger()->error("Exiting with code {}", ExitCode::SymbolGenerationFailed);
             return ExitCode::SymbolGenerationFailed;
         }

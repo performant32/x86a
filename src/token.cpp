@@ -8,6 +8,43 @@ namespace x86a{
         m_TokenType(type){
     }
     using TokenType = Token::Type;
+    bool Token::isLiteralType(Type type)noexcept{
+        switch (type) {
+        case Type::Imm8:
+        case Type::Imm16:
+        case Type::Imm32:
+            return true;
+        default:return false;
+        }
+
+    }
+    bool Token::isRegisterType(Type type)noexcept{
+        switch (type) {
+        case Type::Reg8:
+        case Type::Reg16:
+        case Type::Reg32:
+            return true;
+        default:return false;
+        }
+    }
+
+    int Token::getDataWidthFromTokenType(Type type)noexcept{
+        switch (type) {
+        case Type::Reg8:
+        case Type::Imm8:
+        case Type::Mem8:
+            return 8;
+        case Type::Reg16:
+        case Type::Imm16:
+        case Type::Mem16:
+            return 16;
+        case Type::Reg32:
+        case Type::Imm32:
+        case Type::Mem32:
+            return 32;
+        default:return 0;
+        }
+    }
     const char* Token::getTokenName(TokenType type){
         using TokenType = Token::Type;
         switch (type) {
@@ -31,15 +68,37 @@ namespace x86a{
                 return "Mem8";
             case TokenType::Mem16:
                 return "Mem16";
-            case TokenType::Eof:
-                return "EOF";
+            case TokenType::Mem32:
+                return "Mem32";
             case TokenType::Reg8:
                 return "Reg8";
             case TokenType::Reg16:
                 return "Reg16";
+            case TokenType::Reg32:
+                return "Reg32";
+            case TokenType::Eof:
+                return "EOF";
             default:
                 x86a::getDefaultLogger()->error("Unsupported token type {}", (int)type);
                 std::abort();
+        }
+    }
+    Token::Type Token::getImmediateTypeFromDataWidth(int width)noexcept{
+        switch (width) {
+            case 8:return Type::Imm8;
+            case 16:return Type::Imm16;
+            case 32:return Type::Imm32;
+        default:
+            return Type::Eof;
+        }
+    }
+    Token::Type Token::getRegisterTypeFromDataWidth(int width)noexcept{
+        switch (width) {
+            case 8:return Type::Reg8;
+            case 16:return Type::Reg16;
+            case 32:return Type::Reg32;
+        default:
+            return Type::Eof;
         }
     }
 }

@@ -1,15 +1,32 @@
 #pragma once
 
 #include "pch.h"
+#include <unordered_map>
 
 namespace x86a{
+    // Addressing mode per operand
+    // http://www.csc.villanova.edu/~mdamian/Past/csc2400fa16/notes/AssemblyAddressing.pdf
     enum class AddressingMode{
-        Implied,
+        Immediate,
+        Register,
+        DirectMemory,
+        IndirectMemory,
     };
+
     struct Operand{
-        // Either memory or register
-        bool is_memory;
+        AddressingMode mode;
         uint8_t width;
+    };
+
+    struct Register{
+        enum Type{
+            GeneralPurpose,
+            Segment,
+            IndexOrPointer,
+            Indicator,
+        };
+        Type type;
+        int width;
     };
 
     class Instruction{
@@ -26,10 +43,16 @@ namespace x86a{
     };
     class InstructionSet{
     public:
-        std::vector<Instruction> getInstructionsFromMnemonic(std::string_view mnemonic);
+        using InstructionMap = std::unordered_multimap<std::string_view, Instruction>;
+        using InstructionIterator = InstructionMap::const_iterator;
+
+        const Register* getRegister(std::string_view name)const noexcept;
+        InstructionIterator getInstructionsFromMnemonic(std::string_view mnemonic) const;
+        inline InstructionIterator getInstructionsEndIterator()const noexcept{return m_Instructions.cend();}
         virtual const char* getName() const noexcept = 0;
     protected:
-        std::unordered_multimap<std::string_view, Instruction> m_Instructions;
+        std::unordered_map<std::string_view, Register> m_Registers;
+        InstructionMap m_Instructions;
     };
     class I8086: public InstructionSet{
     public:
