@@ -1,26 +1,13 @@
 #include "default_logger.h"
 #include "pch.h"
+#include <optional>
 #include <vector>
 #include "instruction_set.h"
 
 
 namespace x86a{
-    Instruction::Instruction(uint8_t opcode, std::string_view mnemonic, std::vector<Operand>&& operands):
-        m_Opcode(opcode), m_Mnemonic(mnemonic), m_Operands(operands){
-    }
-    I8086::I8086(){
-        getDefaultLogger()->debug("Initializing I8086 instruction set");
-
-        m_Registers.insert(std::make_pair("di", (Register){Register::Type::GeneralPurpose, 16}));
-        m_Registers.insert(std::make_pair("ax", (Register){Register::Type::GeneralPurpose, 16}));
-        Instruction mov_r8_r8{0x88, "mov", 
-            std::vector{
-                Operand{AddressingMode::Register, 16},
-                Operand{AddressingMode::Immediate, 8}
-            }
-        };
-        m_Instructions.insert(std::make_pair("mov", mov_r8_r8));
-
+    Instruction::Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, Encoding encoding, std::vector<Operand>&& operands):
+        m_InstructionPrefix(prefix), m_Opcode(opcode), m_Encoding(encoding), m_Mnemonic(mnemonic), m_Operands(operands){
     }
     InstructionSet::InstructionIterator InstructionSet::getInstructionsFromMnemonic(std::string_view mnemonic)const{
         auto it = m_Instructions.find(mnemonic);
@@ -31,5 +18,13 @@ namespace x86a{
         auto it = m_Registers.find(name);
         if(it == m_Registers.cend())return nullptr;
         return &it->second;
+    }
+    std::optional<uint8_t> InstructionSet::getRegisterId(std::string_view mnemonic)const{
+        for(const auto& [name, value] : m_Registers){
+            if(mnemonic == name){
+                return value.register_id;
+            }
+        }
+        return std::nullopt;
     }
 }

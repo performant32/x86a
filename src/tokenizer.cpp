@@ -7,12 +7,12 @@ namespace x86a {
     Token Tokenizer::peek(size_t at)const noexcept{
         if(at >= m_Tokens.size())return Token{0,0,Token::Type::Eof};
         return m_Tokens[at];
-    }
-    // TODO: handle preprocessor directives
+    } // TODO: handle preprocessor directives
     std::optional<Tokenizer::ErrorType> Tokenizer::tokenize(const InstructionSet* instruction_set, const ASMFile& file){
         m_File = &file;
         const std::vector<char>& data = file.getData();
         uint32_t line = 1;
+        uint32_t last_line_at = (uint32_t)-1;
         uint32_t column = 1;
 
         auto peek = [&data](int at){
@@ -38,6 +38,7 @@ namespace x86a {
 
         size_t i;
         for(i = 0; i < data.size();){
+            last_line_at = i - last_line_at;
             char c = data[i];
             if(c == ' '){i++;continue;}
             if(c == '\r'){
@@ -45,6 +46,7 @@ namespace x86a {
                 if((c = data[i]) == '\n'){
                     line++;
                     column=1;
+                    last_line_at = i;
                     i++;
                     continue;
                 }
@@ -52,6 +54,7 @@ namespace x86a {
             if(c == '\n'){
                 line++;
                 column=1;
+                last_line_at = i;
                 i++;
                 continue;
             }
@@ -68,16 +71,25 @@ namespace x86a {
                 size_t str_end = i;
                 std::string_view str{data.data() + str_start, str_end - str_start};
                 bool is_instruction = instruction_set->getInstructionsFromMnemonic(str) != instruction_set->getInstructionsEndIterator();
+                uint32_t metadata = 0;
                 Token::Type type = Token::Type::Instruction;
+
                 if(!is_instruction){
                     if(auto reg = instruction_set->getRegister(str)){
                         type = Token::getRegisterTypeFromDataWidth(reg->width);
-                        getDefaultLogger()->debug("IS REGISTER {} {}", str, Token::getTokenName(type));
+                        instruction_set->getInstructionsFromMnemonic(str);
+                        auto it = instruction_set->getRegisterId(str);
+
+                        if(!it){
+                            getDefaultLogger()->error("FATAL, could not get register id");
+                            return ErrorType("FATAL, could not get register id", line, column, Error::UnsupportedRegister);
+                        }
+                        metadata=(uint8_t)it.value();
                     }
                     else
                     type = Token::Type::String;
                 }
-                Token token(str_start, str_end, type);
+                Token token(str_start, str_end, type, metadata);
                 m_Tokens.emplace_back(token);
                 continue;
             }
@@ -106,13 +118,13 @@ namespace x86a {
                 size_t num_end = i;
 
                 std::string_view str{data.data() + num_start, num_end - num_start};
-                getDefaultLogger()->debug("Number {} real/decimal number {}", str, number);
+                //getDefaultLogger()->debug("Number {} real/decimal number {}", str, number);
 
                 Token::Type type = Token::Type::Imm8;
                 if(number > 0xFFFFFFFF)type = Token::Type::Imm64;
                 else if(number > 0xFFFF)type = Token::Type::Imm32;
                 else if(number > 0xFF)type = Token::Type::Imm16;
-                Token token(num_start, num_end, type);
+                Token token(num_start, num_end, type, number);
                 m_Tokens.emplace_back(token);
                 continue;
             }

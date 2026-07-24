@@ -2,10 +2,11 @@
 #include "default_logger.h"
 
 namespace x86a{
-    Token::Token(uint32_t start, uint32_t end, Token::Type type):
+    Token::Token(uint32_t start, uint32_t end, Token::Type type, uint32_t metadata):
         m_Start(start),
         m_End(end),
-        m_TokenType(type){
+        m_TokenType(type),
+        m_Metadata(metadata){
     }
     using TokenType = Token::Type;
     bool Token::isLiteralType(Type type)noexcept{

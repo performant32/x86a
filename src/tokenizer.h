@@ -11,7 +11,8 @@ namespace x86a {
         enum Error{
             None=0,
             UnexpectedSymbol,
-            InvalidImmediate
+            InvalidImmediate,
+            UnsupportedRegister
         };
         struct ErrorType{
             std::string_view data;

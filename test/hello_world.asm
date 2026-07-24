@@ -1,2 +1,2 @@
-mov ax, 2
-mov di, 2
+mov eax, edi
+mov edi, eax

@@ -4,6 +4,7 @@
 #include "default_logger.h"
 #include "section_container.h"
 #include "instruction_set.h"
+#include "cpus/i8086.h"
 #include "section_generator.h"
 #include "code_generator.h"
 #include "tokenizer.h"
@@ -91,13 +92,14 @@ namespace x86a{
         }
 
         bool code_generation_failed = false;
-        CodeGenerator code_generator;
+        CodeGenerator code_generator(instruction_set);
         // TODO: pass flags to generator
         for(const auto& section_map : sections){
-            const auto& path = section_map.getFile();
-            auto file_output = "";
+            auto path = section_map.getFile()->getPath();
+            auto file_output = path.replace_extension(".o");
             if(auto result = code_generator.generate(section_map, file_output)){
-                getDefaultLogger()->error("Exiting with code {}", ExitCode::SymbolGenerationFailed);
+                getDefaultLogger()->error("Code generation failed: {}", result.value());
+                code_generation_failed = true;
             }
 
         }

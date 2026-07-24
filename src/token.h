@@ -40,15 +40,17 @@ namespace x86a{
         /// @return returns Type::Eof if not suitable
         static Type getRegisterTypeFromDataWidth(int width)noexcept;
 
-        Token(uint32_t start, uint32_t end, Token::Type type);
+        Token(uint32_t start, uint32_t end, Token::Type type, uint32_t metadata=0);
         static const char* getTokenName(Token::Type type);
 
         uint32_t getStart()const noexcept{return m_Start;}
         uint32_t getEnd()const noexcept{return m_End;}
         Token::Type getType()const noexcept{return m_TokenType;}
+        uint32_t getMetadata()const noexcept{return m_Metadata;}
     private:
         uint32_t m_Start;
         uint32_t m_End;
         Token::Type m_TokenType;
+        uint32_t m_Metadata=0;
     };
 }

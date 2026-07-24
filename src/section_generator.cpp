@@ -3,7 +3,9 @@
 #include "pch.h"
 #include "section_generator.h"
 #include "default_logger.h"
+#include "section_container.h"
 #include <ranges>
+#include <source_location>
 
 namespace x86a{
     SectionGenerator::SectionGenerator(const InstructionSet& instruction_set): m_InstructionSet(&instruction_set){
@@ -35,10 +37,14 @@ namespace x86a{
                 continue;
             }
             const Instruction* suitableInstruction = nullptr;
+            std::vector<OperandValue> operands;
+
             while(possibleInstruction != end){
                 const auto& instruction = possibleInstruction->second;
                 getDefaultLogger()->debug("Got instruction {}", instruction.getMnemonic());
                 size_t at = i+1;
+
+                operands.clear();
                 for(size_t j = 0; j < instruction.getOperands().size(); j++){
                     if(j > 0){
                         Token separator = tokenizer.peek(at);
@@ -58,12 +64,30 @@ namespace x86a{
                             getDefaultLogger()->error("Here {}", Token::getTokenName(type));
                             goto end_instruction;
                         }
+                        OperandValue value;
+                        switch(type){
+                        case Token::Type::Imm8:
+                            value.u8 = (uint16_t)argument.getMetadata();
+                            break;
+                        case Token::Type::Imm16:
+                            value.u16 = (uint16_t)argument.getMetadata();
+                            break;
+                        case Token::Type::Imm32:
+                            value.u32 = (uint16_t)argument.getMetadata();
+                            break;
+                        default:
+                            // should prob NEVER get called unless but
+                            getDefaultLogger()->error("Unsupported token type {}:{}", std::source_location::current().line(), std::source_location::current().line());
+                            std::abort();
+                        }
+                        operands.emplace_back(value);
                     }break;
                     case AddressingMode::Register:{
                         if(!Token::isRegisterType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
                             getDefaultLogger()->error("Expected register, got {}, ", file->getString(argument.getStart(), argument.getEnd()));
                             goto end_instruction;
                         }
+                        operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata()});
                     }break;
                     default:
                         goto end_instruction;
@@ -83,7 +107,9 @@ namespace x86a{
                 i++;
                 continue;
             }
-            getDefaultLogger()->log("Found suitable instruction {}", mnemonic);
+
+            getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
+            output.getSection(section).addInstruction(*suitableInstruction, std::move(operands));
         }
         return !generated_error;
     }
