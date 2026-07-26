@@ -13,7 +13,7 @@ namespace x86a{
         getDefaultLogger()->debug("Symbol generator using instruction set {}", instruction_set.getName());
     }
     bool SectionGenerator::generate(const Tokenizer& tokenizer, SectionContainer& output){
-        std::string section = ".text";
+        std::string name = ".text";
 
         const ASMFile* file = tokenizer.getFile();
         const std::vector<Token>& tokens = tokenizer.getTokens();
@@ -134,8 +134,37 @@ namespace x86a{
                 continue;
             }
 
+            Section& section = output.getSection(name);
+            // 15 bytes is the max for an instruction
+            uint8_t bytes[15];
+
+            /*
+            int bytesWritten = 0;
+            if(auto error = m_InstructionSet->writeInstructionBytes(bytes, &bytesWritten, instruction.getInstruction(), instruction.getOperandValues())){
+                return std::format("Failed to generate code for {}", path.string());
+            }
+            getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", instruction.getMnemonic(), instruction.getOperandValues().size(), bytesWritten);
+            std::string values;
+            for(size_t i = 0; i < bytesWritten; i++){
+                values += std::format("{:>5}: {:X}\n", i, bytes[i]);
+            }
+            getDefaultLogger()->log("Instruction bytes\n{}", values);
+            data.reserve(data.size()+bytesWritten);
+            for(size_t i = 0; i < bytesWritten; i++){
+                data.emplace_back(bytes[i]);
+            }
+            */
+
+            uint8_t b[] = {
+                0xb8, 0x1, 0x00, 0x00, 0x00,
+                0xbb, 0x29, 0x00, 0x00, 0x00,
+                0xcd, 0x80,                   
+            };
+            for(size_t i = 0; i < sizeof(b); i++){
+                section.addData(b[i]);
+            }
+
             getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
-            output.getSection(section).addInstruction(*suitableInstruction, std::move(operands));
         }
         return !generated_error;
     }

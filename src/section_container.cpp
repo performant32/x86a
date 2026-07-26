@@ -6,8 +6,8 @@ namespace x86a{
     InstructionInstance::InstructionInstance(const Instruction& instruction, std::vector<OperandValue>&& operandValues):
          m_OperandValues(std::move(operandValues)), Instruction(instruction){
     }
-    void Section::addInstruction(const Instruction& instruction, std::vector<OperandValue>&& values){
-        m_Instructions.emplace_back(instruction, std::move(values));
+    void Section::addData(char data)noexcept{
+        m_Data.push_back(data);
     }
     Section::Section(std::string_view name) : m_Name(name){}
 

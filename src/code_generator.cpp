@@ -40,10 +40,12 @@ namespace x86a{
             header->e_type = ET_REL;
             header->e_machine = EM_386;
             header->e_version = EV_CURRENT;
+            header->e_ehsize = sizeof(Elf32_Ehdr);
         }
 
         using OffsetType = uint32_t;
 
+        std::unordered_set<std::string_view> shstrings;
         std::unordered_set<std::string_view> strings;
         std::vector<Elf32_Shdr> section_headers;
 
@@ -52,34 +54,64 @@ namespace x86a{
         const std::vector<int> symbols;
 
         for(const auto& [name, section] : sectionsContainer.getSections()){
-            std::vector<char> data;
+            shstrings.insert(name);
+        }
 
-            for(const auto& instruction : section.getInstructions()){
-                // 15 bytes is the max for an instruction
-                uint8_t bytes[15];
+        shstrings.insert(".symtab");
+        shstrings.insert(".strtab");
+        shstrings.insert(".shstrtab");
+        strings.insert("_start");
 
-                int bytesWritten = 0;
-                if(auto error = m_InstructionSet->writeInstructionBytes(bytes, &bytesWritten, instruction.getInstruction(), instruction.getOperandValues())){
-                    return std::format("Failed to generate code for {}", path.string());
-                }
-                getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", instruction.getMnemonic(), instruction.getOperandValues().size(), bytesWritten);
-                std::string values;
-                for(size_t i = 0; i < bytesWritten; i++){
-                    values += std::format("{:>5}: {:X}\n", i, bytes[i]);
-                }
-                getDefaultLogger()->log("Instruction bytes\n{}", values);
-                data.reserve(data.size()+bytesWritten);
-                for(size_t i = 0; i < bytesWritten; i++){
-                    data.emplace_back(bytes[i]);
+        std::vector<char> section_data;
+        // str table
+        section_data.emplace_back('\0');
+        for(const auto& str : strings){
+            for(const auto& c : str){
+                section_data.emplace_back(c);
+            }
+            section_data.emplace_back(0);
+        }
+        OffsetType str_section_at = file_data.size();
+        OffsetType str_section_size = section_data.size();
+        file_data.insert(file_data.end(), section_data.cbegin(), section_data.cend());
+
+        auto findStrIndex = [&file_data, str_section_at, size=str_section_size](const std::string_view& str){
+            for(size_t i = 0; i < size; i++){
+                if(strncmp(file_data.data() + str_section_at + i, str.data(), str.size()) == 0){
+                    return i;
                 }
             }
+            return (size_t)0;
+        };
+        // sh str table
+        section_data.clear();
+        section_data.emplace_back('\0');
+        for(const auto& str : shstrings){
+            for(const auto& c : str){
+                section_data.emplace_back(c);
+            }
+            section_data.emplace_back(0);
+        }
+        OffsetType sh_str_section_at = file_data.size();
+        OffsetType sh_str_section_size = section_data.size();
+        file_data.insert(file_data.end(), section_data.cbegin(), section_data.cend());
 
-            auto it = strings.insert(name);
-            int str_at = 1 + std::distance(strings.begin(), it.first);
+        auto findShStrIndex = [&file_data, sh_str_section_at, size=sh_str_section_size](const std::string_view& str){
+            for(size_t i = 0; i < size; i++){
+                if(strncmp(file_data.data() + sh_str_section_at + i, str.data(), str.size()) == 0){
+                    return i;
+                }
+            }
+            return (size_t)0;
+        };
 
+        for(const auto& [name, section] : sectionsContainer.getSections()){
+            getDefaultLogger()->debug("Adding section \"{}\"", name);
+            const auto& data = section.getData();
             Elf32_Shdr shdr = (Elf32_Shdr){0};
             shdr.sh_size = data.size();
-            shdr.sh_name = str_at;
+            shdr.sh_name = findShStrIndex(name);
+            shdr.sh_addralign = 1;
             shdr.sh_offset = file_data.size();
             shdr.sh_type = SHT_PROGBITS;
 
@@ -92,47 +124,34 @@ namespace x86a{
             section_headers.emplace_back(shdr);
             file_data.insert(file_data.end(), data.cbegin(), data.cend());
         }
-        strings.insert(".symtab");
-        strings.insert(".strtab");
-        strings.insert("_start");
 
-        std::vector<char> section_data;
-        section_data.emplace_back('\0');
-        for(const auto& str : strings){
-            for(const auto& c : str){
-                section_data.emplace_back(c);
-            }
-            section_data.emplace_back(0);
-        }
-        getDefaultLogger()->log("Section data size {}", section_data.size());
+        Elf32_Shdr shstring_section = (Elf32_Shdr){0};
+        shstring_section.sh_name = findShStrIndex(".shstrtab");
+        shstring_section.sh_offset = sh_str_section_at;
+        shstring_section.sh_size = sh_str_section_size;
+        shstring_section.sh_type = SHT_STRTAB;
+        shstring_section.sh_flags = 0;
+        shstring_section.sh_addralign = 1;
+        section_headers.emplace_back(shstring_section);
 
-        auto findSection = [&strings](const std::string& str){
-            return 1 + std::distance(strings.begin(), strings.find(str));
-        };
         Elf32_Shdr string_section = (Elf32_Shdr){0};
-        string_section.sh_name = findSection(".strtab");
-        string_section.sh_offset = file_data.size();
-        //string_section.sh_entsize = sizeof(Elf32_Shdr);
-        string_section.sh_size = section_data.size();
-        string_section.sh_flags = SHF_ALLOC;
+        string_section.sh_name = findShStrIndex(".strtab");
+        string_section.sh_offset = str_section_at;
+        string_section.sh_size = str_section_size;
         string_section.sh_type = SHT_STRTAB;
         string_section.sh_flags = 0;
-        //string_section.sh_info = strings.size();
-        //string_section.sh_link = section_headers.size()+1;
-        getDefaultLogger()->warn("Section is {}", section_headers.size());
+        string_section.sh_addralign = 1;
         section_headers.emplace_back(string_section);
-        file_data.insert(file_data.end(), section_data.cbegin(), section_data.cend());
-
         
         Elf32_Shdr symbol_table = (Elf32_Shdr){0};
         symbol_table.sh_type = SHT_SYMTAB;
-        symbol_table.sh_flags = SHF_ALLOC;
-        symbol_table.sh_name = findSection(".symtab");
+        symbol_table.sh_name = findShStrIndex(".symtab");
         symbol_table.sh_entsize = sizeof(Elf32_Sym);
         symbol_table.sh_offset=file_data.size();
-        symbol_table.sh_size = sizeof(Elf32_Sym) * 2;
+        symbol_table.sh_size = sizeof(Elf32_Sym) * 3;
         symbol_table.sh_link = section_headers.size()-1;
-        symbol_table.sh_info = 2;
+        symbol_table.sh_info = 2;//3 symbols
+        symbol_table.sh_addralign = 1;//2 symbols
         section_headers.emplace_back(symbol_table);
 
         section_data.clear();
@@ -141,12 +160,24 @@ namespace x86a{
         write(&symbol, sizeof(symbol));
 
         symbol = (Elf32_Sym){0};
-        symbol.st_name = findSection("_start");
+        symbol.st_name = findStrIndex(".text");
         // yes harcoded for now
         symbol.st_shndx = 1;
         symbol.st_value = 0;
-        symbol.st_info = STT_FUNC;
+        symbol.st_other = STV_DEFAULT;
+        symbol.st_info = ELF64_ST_INFO(STB_GLOBAL, STT_SECTION);
+        //symbol.st_other
         write(&symbol, sizeof(symbol));
+
+        symbol = (Elf32_Sym){0};
+        symbol.st_name = findStrIndex("_start");
+        // yes harcoded for now
+        symbol.st_shndx = 1;
+        symbol.st_other = STV_DEFAULT;
+        symbol.st_info = ELF64_ST_INFO(STB_GLOBAL, STT_NOTYPE);
+        //symbol.st_other
+        write(&symbol, sizeof(symbol));
+
         //file_data.insert(file_data.end(), section_data.cbegin(), section_data.cend());
 
         OffsetType sh_offset = file_data.size();
@@ -165,7 +196,7 @@ namespace x86a{
             header->e_shoff = sh_offset;
             header->e_shentsize = sizeof(Elf32_Shdr);
             header->e_shnum = section_headers.size();
-            header->e_shstrndx = section_headers.size()-1;
+            header->e_shstrndx = section_headers.size()-3;
         }
 
         file.write(file_data.data(), file_data.size());

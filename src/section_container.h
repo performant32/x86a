@@ -19,23 +19,36 @@ namespace x86a{
     public:
         Section(std::string_view name);
 
-        void addInstruction(const Instruction& instruction, std::vector<OperandValue>&& values);
+        void addData(char data)noexcept;
 
-        const std::vector<InstructionInstance>& getInstructions()const noexcept{return m_Instructions;}
+        const std::vector<char>& getData()const noexcept{return m_Data;}
         const std::string& getName()const noexcept{return m_Name;}
     private:
-        std::vector<InstructionInstance> m_Instructions;
+        std::vector<char> m_Data;
         std::string m_Name;
     };
     class SectionContainer{
     public:
+        struct StringHash {
+            using is_transparent = void;
+            [[nodiscard]] size_t operator()(const char *txt) const {
+                return std::hash<std::string_view>{}(txt);
+            }
+            [[nodiscard]] size_t operator()(std::string_view txt) const {
+                return std::hash<std::string_view>{}(txt);
+            }
+            [[nodiscard]] size_t operator()(const std::string &txt) const {
+                return std::hash<std::string>{}(txt);
+            }
+        };
+        using SectionMap = std::unordered_map<std::string, Section,StringHash, std::equal_to<>>;
         SectionContainer(const ASMFile* file);
         Section& getSection(std::string_view name);
 
         const ASMFile* getFile() const noexcept{return m_File;}
-        const std::unordered_map<std::string_view, Section>& getSections() const noexcept{return m_Sections;}
+        const SectionMap& getSections() const noexcept{return m_Sections;}
     private:
         const ASMFile* m_File = nullptr;
-        std::unordered_map<std::string_view, Section> m_Sections;
+        SectionMap m_Sections;
     }; 
 }
