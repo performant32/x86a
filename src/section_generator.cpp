@@ -4,6 +4,7 @@
 #include "section_generator.h"
 #include "default_logger.h"
 #include "section_container.h"
+#include "token.h"
 #include <ranges>
 #include <source_location>
 
@@ -12,7 +13,7 @@ namespace x86a{
         getDefaultLogger()->debug("Symbol generator using instruction set {}", instruction_set.getName());
     }
     bool SectionGenerator::generate(const Tokenizer& tokenizer, SectionContainer& output){
-        std::string section = "text";
+        std::string section = ".text";
 
         const ASMFile* file = tokenizer.getFile();
         const std::vector<Token>& tokens = tokenizer.getTokens();
@@ -59,9 +60,33 @@ namespace x86a{
                     getDefaultLogger()->debug("Argument {} has type {}, value {}", j, Token::getTokenName(argument.getType()), file->getString(argument.getStart(), argument.getEnd()));
                     const auto& operand = instruction.getOperands()[j];
                     switch(operand.mode){
+                    //case AddressingMode::Symbol:
+                    case AddressingMode::DirectMemory:{
+                        if(type != Token::Type::Index)goto end_instruction;
+                        if((Token::Indexer)argument.getMetadata() != Token::Indexer::LeftBracket){
+                            getDefaultLogger()->error("Unexpected {}, did you mean '['?", (char)argument.getMetadata());
+                            generated_error = true;
+                            i++;
+                            continue;
+                        }
+                        i++;
+                        argument = tokenizer.peek(at);
+                        type = argument.getType();
+
+                        //TODO: Parse symbol as relocatable memory location
+                        bool inner_generated_error = false;
+                        switch (type) {
+                        default:{
+                            getDefaultLogger()->error("Unexpected {}, did you mean '['?", (char)argument.getMetadata());
+                            inner_generated_error = true;
+                            generated_error = true;
+                            i++;
+                        }break;
+                        }
+                        if(inner_generated_error)goto end_instruction;
+                    }break;
                     case AddressingMode::Immediate:{
                         if(!Token::isLiteralType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
-                            getDefaultLogger()->error("Here {}", Token::getTokenName(type));
                             goto end_instruction;
                         }
                         OperandValue value;
@@ -73,7 +98,7 @@ namespace x86a{
                             value.u16 = (uint16_t)argument.getMetadata();
                             break;
                         case Token::Type::Imm32:
-                            value.u32 = (uint16_t)argument.getMetadata();
+                            value.u32 = (uint32_t)argument.getMetadata();
                             break;
                         default:
                             // should prob NEVER get called unless but
@@ -89,6 +114,7 @@ namespace x86a{
                         }
                         operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata()});
                     }break;
+
                     default:
                         goto end_instruction;
                     };

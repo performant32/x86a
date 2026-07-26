@@ -14,3 +14,6 @@
 #include <cstdint>
 #include <optional>
 #include <filesystem>
+#include <unordered_set>
+#include <cstring>
+#include <elf.h>

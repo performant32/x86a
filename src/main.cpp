@@ -100,6 +100,7 @@ namespace x86a{
             if(auto result = code_generator.generate(section_map, file_output)){
                 getDefaultLogger()->error("Code generation failed: {}", result.value());
                 code_generation_failed = true;
+                std::filesystem::remove(path);
             }
 
         }

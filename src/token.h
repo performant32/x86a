@@ -5,6 +5,11 @@
 namespace x86a{
     class Token{
     public:
+        enum Indexer{
+            LeftBracket,
+            RightBracket
+        };
+
         enum Type{
             Eof,
             Instruction,
@@ -21,7 +26,10 @@ namespace x86a{
             Mem48,
             Reg8,
             Reg16,
-            Reg32
+            Reg32,
+            Index,    // e.g. '[' or ']'
+            Offset,     // e.g. '+'
+            Scale,     // e.g. '*'
         };
 
         static bool isLiteralType(Type type)noexcept;
@@ -40,7 +48,7 @@ namespace x86a{
         /// @return returns Type::Eof if not suitable
         static Type getRegisterTypeFromDataWidth(int width)noexcept;
 
-        Token(uint32_t start, uint32_t end, Token::Type type, uint32_t metadata=0);
+        Token(uint32_t start=0, uint32_t end=0, Token::Type type = Token::Type::Eof, uint32_t metadata=0);
         static const char* getTokenName(Token::Type type);
 
         uint32_t getStart()const noexcept{return m_Start;}

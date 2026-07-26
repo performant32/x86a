@@ -32,6 +32,7 @@ namespace x86a{
             uint8_t* mu8;
             uint16_t* mu16;
             uint32_t* mu32;
+            std::string_view symbol={};
         };
     };
 

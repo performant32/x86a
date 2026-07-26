@@ -20,14 +20,25 @@ namespace x86a {
         m_Registers.insert(std::make_pair("di",  (Register){0b111, Register::Type::GeneralPurpose, 16}));
         m_Registers.insert(std::make_pair("edi", (Register){0b111, Register::Type::GeneralPurpose, 32}));
 
-        m_Instructions.insert(std::make_pair("mov", Instruction(
-            InstructionPrefix::None, 0x89, "mov", Instruction::Encoding::ModRM,
+#define CREATE_INSTRUCTION(name, ...)m_Instructions.insert(std::make_pair(name, Instruction(__VA_ARGS__)))
+
+        CREATE_INSTRUCTION("mov",
+            InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
                 std::vector{
                     Operand{AddressingMode::Register, 32},
                     Operand{AddressingMode::Register, 32}
                 }
-            )
-        ));
+        );
+
+        CREATE_INSTRUCTION("mov",
+            InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
+                std::vector{
+                    Operand{AddressingMode::Register, 32},
+                    Operand{AddressingMode::DirectMemory, 32}
+                }
+        );
+
+#undef CREATE_INSTRUCTION
     }
     uint8_t I8086::createModRMByte(uint8_t mod, uint8_t rm, uint8_t reg_or_opcode)const noexcept{
         return BITS(mod, 6, 2) | BITS(reg_or_opcode, 3, 3) | BITS(rm, 0, 3);
@@ -47,9 +58,10 @@ namespace x86a {
 
         getDefaultLogger()->log("Count {} {}", operands.size(), arguments.size());
         switch (opcode) {
-        case 0x89:{
+        // mov r/m to r
+        case 0x8B:{
             getDefaultLogger()->log("Writing mov");
-            write(0x89);
+            write((uint8_t)opcode);
             getDefaultLogger()->log("done Writing mov");
 
             switch(operands[1].mode){
@@ -59,7 +71,7 @@ namespace x86a {
                     write(createModRMByte(11, source_operand, destination_operand));
                     getDefaultLogger()->log("Wrote mov instruction args {}, {}", destination_operand, source_operand);
                 }break;
-                case x86a::AddressingMode::Immediate:{
+                case x86a::AddressingMode::DirectMemory:{
                 };
             }
         }break;

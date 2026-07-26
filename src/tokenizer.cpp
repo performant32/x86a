@@ -87,10 +87,25 @@ namespace x86a {
                         metadata=(uint8_t)it.value();
                     }
                     else
-                    type = Token::Type::String;
+                    type = Token::Type::Symbol;
                 }
                 Token token(str_start, str_end, type, metadata);
                 m_Tokens.emplace_back(token);
+                continue;
+            }
+            if(c == '[' || c == ']'){
+                m_Tokens.emplace_back(i, i+1, Token::Type::Index, c == '[' ? Token::Indexer::LeftBracket : Token::Indexer::RightBracket);
+                i++;
+                continue;
+            }
+            if(c == '+'){
+                m_Tokens.emplace_back(i, i+1, Token::Type::Offset);
+                i++;
+                continue;
+            }
+            if(c == '*'){
+                m_Tokens.emplace_back(i, i+1, Token::Type::Scale);
+                i++;
                 continue;
             }
             if(std::isdigit(c)){

@@ -20,11 +20,8 @@ namespace x86a{
         return &it->second;
     }
     std::optional<uint8_t> InstructionSet::getRegisterId(std::string_view mnemonic)const{
-        for(const auto& [name, value] : m_Registers){
-            if(mnemonic == name){
-                return value.register_id;
-            }
-        }
-        return std::nullopt;
+        const auto& it = m_Registers.find(mnemonic);
+        if(it == m_Registers.end())return std::nullopt;
+        return it->second.register_id;
     }
 }
