@@ -1,2 +1,3 @@
 build/
 x86a
+.*.mk
