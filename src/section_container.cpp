@@ -3,9 +3,6 @@
 #include "section_container.h"
 
 namespace x86a{
-    InstructionInstance::InstructionInstance(const Instruction& instruction, std::vector<OperandValue>&& operandValues):
-         m_OperandValues(std::move(operandValues)), Instruction(instruction){
-    }
     void Section::addData(char data)noexcept{
         m_Data.push_back(data);
     }

@@ -5,14 +5,6 @@
 
 namespace x86a{
 
-    class InstructionInstance : public Instruction{
-    public:
-        InstructionInstance(const Instruction& instruction, std::vector<OperandValue>&& operandValues);
-        const Instruction& getInstruction()const noexcept{return *this;}
-        const std::vector<OperandValue>& getOperandValues()const noexcept{return m_OperandValues;}
-    private:
-        std::vector<OperandValue> m_OperandValues;
-    };
 
     class Section{
     public:
