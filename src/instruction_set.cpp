@@ -1,13 +1,17 @@
 #include "default_logger.h"
 #include "pch.h"
 #include <optional>
+#include <type_traits>
 #include <vector>
 #include "instruction_set.h"
 
 
 namespace x86a{
     Instruction::Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, Encoding encoding, std::vector<Operand>&& operands):
-        m_InstructionPrefix(prefix), m_Opcode(opcode), m_Encoding(encoding), m_Mnemonic(mnemonic), m_Operands(operands){
+        m_InstructionPrefix(prefix), m_Opcode(opcode), m_Encoding((uint32_t)encoding), m_Mnemonic(mnemonic), m_Operands(operands){
+    }
+    Instruction::Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, int32_t encoding, std::vector<Operand>&& operands):
+        m_InstructionPrefix(prefix), m_Opcode(opcode), m_Encoding((uint32_t)encoding), m_Mnemonic(mnemonic), m_Operands(operands){
     }
     InstructionSet::InstructionIterator InstructionSet::getInstructionsFromMnemonic(std::string_view mnemonic)const{
         auto it = m_Instructions.find(mnemonic);

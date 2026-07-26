@@ -1,2 +1,1 @@
-mov eax, edi
-mov eax, edi
+mov eax, 5

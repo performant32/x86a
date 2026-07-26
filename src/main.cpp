@@ -4,7 +4,7 @@
 #include "default_logger.h"
 #include "section_container.h"
 #include "instruction_set.h"
-#include "cpus/i8086.h"
+#include "cpus/i386.h"
 #include "section_generator.h"
 #include "code_generator.h"
 #include "tokenizer.h"
@@ -42,7 +42,7 @@ namespace x86a{
             }
             sources.emplace_back(arg);
         }
-        I8086 instruction_set;
+        I386 instruction_set;
 
         bool tokenizer_stage_failed = false;
         std::vector<ASMFile> files;

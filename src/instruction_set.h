@@ -1,7 +1,9 @@
 #pragma once
 
 #include "pch.h"
+#include "bitfields.h"
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 
 namespace x86a{
@@ -12,10 +14,14 @@ namespace x86a{
         Register,
         DirectMemory,
         IndirectMemory,
+        //Register/Memory
+        RM
     };
 
     enum class InstructionPrefix{
-        None=0
+        None=0,
+        // Move Immediate to gpr
+        Immediate=0xB8
     };
 
     struct Operand{
@@ -50,25 +56,34 @@ namespace x86a{
 
     class Instruction{
     public:
-        enum class Encoding{
-            RegisterField,
-            ModRM,
-            ModRMPlusSIB
+        enum class Encoding:int32_t{
+            None = 0,
+            Immediate = BIT(1),
+            RegisterField=BIT(2),
+            ModRM=BIT(2),
+            ModMR=BIT(3),
+            ModMI=BIT(4),
+            ModRMPlusSIB=BIT(5)
         };
-
     public:
         Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, Encoding encoding, std::vector<Operand>&& operands);
+        Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, int32_t encoding, std::vector<Operand>&& operands);
 
         InstructionPrefix getInstructionPrefix()const noexcept{return m_InstructionPrefix;}
 
+        template<typename... Args>
+        constexpr static int createEncoding(Args... encodings){
+            return (static_cast<int>(encodings) | ... | 0);
+        }
+
         uint32_t getOpcode() const noexcept{return m_Opcode;}
-        Encoding getEncoding()const noexcept{return m_Encoding;}
+        int32_t getEncoding()const noexcept{return m_Encoding;}
         std::string_view getMnemonic() const noexcept{return m_Mnemonic;}
         const std::vector<Operand>& getOperands() const noexcept{return m_Operands;}
     private:
         InstructionPrefix m_InstructionPrefix;
         uint32_t m_Opcode;
-        Encoding m_Encoding;
+        int32_t m_Encoding;
         std::string_view m_Mnemonic;
         std::vector<Operand> m_Operands;
     };

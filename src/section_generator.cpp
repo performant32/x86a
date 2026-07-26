@@ -86,10 +86,10 @@ namespace x86a{
                         if(inner_generated_error)goto end_instruction;
                     }break;
                     case AddressingMode::Immediate:{
-                        if(!Token::isLiteralType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
+                        if(!Token::isLiteralType(type) || Token::getDataWidthFromTokenType(type) > operand.width){
                             goto end_instruction;
                         }
-                        OperandValue value;
+                        OperandValue value = (OperandValue){0};
                         switch(type){
                         case Token::Type::Imm8:
                             value.u8 = (uint16_t)argument.getMetadata();
@@ -109,7 +109,6 @@ namespace x86a{
                     }break;
                     case AddressingMode::Register:{
                         if(!Token::isRegisterType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
-                            getDefaultLogger()->error("Expected register, got {}, ", file->getString(argument.getStart(), argument.getEnd()));
                             goto end_instruction;
                         }
                         operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata()});
@@ -138,32 +137,20 @@ namespace x86a{
             // 15 bytes is the max for an instruction
             uint8_t bytes[15];
 
-            /*
             int bytesWritten = 0;
-            if(auto error = m_InstructionSet->writeInstructionBytes(bytes, &bytesWritten, instruction.getInstruction(), instruction.getOperandValues())){
-                return std::format("Failed to generate code for {}", path.string());
+            if(auto error = m_InstructionSet->writeInstructionBytes(bytes, &bytesWritten, *suitableInstruction, operands)){
+                getDefaultLogger()->error("Failed to generate code for {}", file->getPath().string());
+                return false;
             }
-            getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", instruction.getMnemonic(), instruction.getOperandValues().size(), bytesWritten);
+            getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", suitableInstruction->getMnemonic(), operands.size(), bytesWritten);
             std::string values;
             for(size_t i = 0; i < bytesWritten; i++){
                 values += std::format("{:>5}: {:X}\n", i, bytes[i]);
             }
             getDefaultLogger()->log("Instruction bytes\n{}", values);
-            data.reserve(data.size()+bytesWritten);
             for(size_t i = 0; i < bytesWritten; i++){
-                data.emplace_back(bytes[i]);
+                section.addData(bytes[i]);
             }
-            */
-
-            uint8_t b[] = {
-                0xb8, 0x1, 0x00, 0x00, 0x00,
-                0xbb, 0x29, 0x00, 0x00, 0x00,
-                0xcd, 0x80,                   
-            };
-            for(size_t i = 0; i < sizeof(b); i++){
-                section.addData(b[i]);
-            }
-
             getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
         }
         return !generated_error;
