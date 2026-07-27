@@ -2,9 +2,7 @@
 #include "default_logger.h"
 #include "instruction_set.h"
 #include "bitfields.h"
-#include <cstdlib>
-#include <ratio>
-#include <span>
+#include "macros.h"
 
 namespace x86a {
     std::span<const char* const, std::dynamic_extent> I386::getKeywords()const noexcept{
@@ -34,15 +32,7 @@ namespace x86a {
             InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
                 std::vector{
                     Operand{AddressingMode::Register, 32},
-                    Operand{AddressingMode::Register, 32}
-                }
-        );
-
-        CREATE_INSTRUCTION("mov",
-            InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
-                std::vector{
-                    Operand{AddressingMode::Register, 32},
-                    Operand{AddressingMode::DirectMemory, 32}
+                    Operand{AddressingMode::RM, 32}
                 }
         );
 
@@ -134,6 +124,24 @@ namespace x86a {
             }
         }
         if(encoding & (int)Instruction::Encoding::ModRM){
+            bool has_rm_byte = false;
+            const OperandValue* source = nullptr;
+            const OperandValue* dest = nullptr;
+            for(size_t i = 0; i < operands.size(); i++){
+                const auto& operand = operands[i];
+                uint32_t reg_t = 0;
+                
+                if(operand.mode == AddressingMode::RM){
+                    //until we parse symbols
+                    ASSERT(operands.size() == 2, "INVALID OPERANDS PASSED TO RM");
+                    has_rm_byte = true;
+                    break;
+                }
+            }
+
+            if(!has_rm_byte){
+                return std::format("Expected R/M for instruction ", instruction.getMnemonic());
+            }
             uint8_t register_id = arguments[0].u8;
             AddressingMode mode = operands[1].mode;
             switch(mode){

@@ -5,15 +5,15 @@
 #include <type_traits>
 
 namespace x86a{
-    // Addressing mode per operand
+    // Addressing modes here specify what kind of operand instructions require and the kind of arguments passed to instructions
     // http://www.csc.villanova.edu/~mdamian/Past/csc2400fa16/notes/AssemblyAddressing.pdf
     enum class AddressingMode{
         Immediate,
         Register,
         DirectMemory,
         IndirectMemory,
-        //Register/Memory
-        RM
+        RM,
+        SIB
     };
 
     enum class InstructionPrefix{
@@ -38,6 +38,7 @@ namespace x86a{
             uint32_t* mu32;
             std::string_view symbol={};
         };
+        AddressingMode mode;
         bool has_symbol = false;
     };
 
@@ -55,6 +56,7 @@ namespace x86a{
 
     class Instruction{
     public:
+        //Some encodings are used together like R/M and SIB
         enum class Encoding:int32_t{
             None = 0,
             Immediate = BIT(1),

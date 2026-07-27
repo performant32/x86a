@@ -7,7 +7,7 @@ namespace x86a{
     public:
         enum Indexer{
             LeftBracket,
-            RightBracket
+            RightBracket,
         };
 
         enum Type{

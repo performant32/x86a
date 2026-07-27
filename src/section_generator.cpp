@@ -5,6 +5,7 @@
 #include "default_logger.h"
 #include "section_container.h"
 #include "token.h"
+#include <optional>
 #include <ranges>
 #include <source_location>
 
@@ -18,12 +19,13 @@ namespace x86a{
         const ASMFile* file = tokenizer.getFile();
         const std::vector<Token>& tokens = tokenizer.getTokens();
         bool generated_error = false;
-        for(size_t i = 0; i < tokens.size() - 1;){
-            Token t = tokens[i];
+        m_At = 0;
+        for(m_At = 0; m_At < tokens.size() - 1;){
+            Token t = tokens[m_At];
             if(t.getType() != Token::Type::Instruction){
                 getDefaultLogger()->error("Expected instruction, got \"{}\" type {}", file->getString(t.getStart(), t.getEnd()), (int)t.getType());
                 generated_error = true;
-                i++;
+                m_At++;
                 continue;
             }
 
@@ -33,7 +35,7 @@ namespace x86a{
             if(possibleInstruction == end){
                 getDefaultLogger()->error("Expected instruction, got {}", file->getString(t.getStart(), t.getEnd()));
                 generated_error = true;
-                i++;
+                m_At++;
                 continue;
             }
             const Instruction* suitableInstruction = nullptr;
@@ -42,7 +44,7 @@ namespace x86a{
             while(possibleInstruction != end){
                 const auto& instruction = possibleInstruction->second;
                 getDefaultLogger()->debug("Got instruction {}", instruction.getMnemonic());
-                size_t at = i+1;
+                size_t at = m_At+1;
 
                 operands.clear();
                 for(size_t j = 0; j < instruction.getOperands().size(); j++){
@@ -58,16 +60,20 @@ namespace x86a{
                     Token::Type type = argument.getType();
                     getDefaultLogger()->debug("Argument {} has type {}, value {}", j, Token::getTokenName(argument.getType()), file->getString(argument.getStart(), argument.getEnd()));
                     const auto& operand = instruction.getOperands()[j];
-                    switch(operand.mode){
+                    AddressingMode mode = operand.mode;
+                    if(mode == AddressingMode::RM){
+
+                    }
+                    switch(mode){
                     case AddressingMode::DirectMemory:{
                         if(type != Token::Type::Index)goto end_instruction;
                         if((Token::Indexer)argument.getMetadata() != Token::Indexer::LeftBracket){
                             getDefaultLogger()->error("Unexpected {}, did you mean '['?", (char)argument.getMetadata());
                             generated_error = true;
-                            i++;
+                            m_At++;
                             continue;
                         }
-                        i++;
+                        m_At++;
                         argument = tokenizer.peek(at);
                         type = argument.getType();
 
@@ -75,16 +81,16 @@ namespace x86a{
                         bool inner_generated_error = false;
                         switch (type) {
                         case Token::Imm32:{
-                            operands.emplace_back((OperandValue){.u32=argument.getMetadata()});
+                            operands.emplace_back((OperandValue){.u32=argument.getMetadata(),.mode=AddressingMode::Immediate });
                         }break;
                         case Token::Type::Symbol:{
-                            operands.emplace_back((OperandValue){.symbol=file->getString(argument.getStart(), argument.getEnd()), .has_symbol=true});
+                            operands.emplace_back((OperandValue){.symbol=file->getString(argument.getStart(), argument.getEnd()), .mode=AddressingMode::DirectMemory, .has_symbol=true});
                         }break;
                         default:{
                             getDefaultLogger()->error("Unexpected {}, did you mean '['?", (char)argument.getMetadata());
                             inner_generated_error = true;
                             generated_error = true;
-                            i++;
+                            m_At++;
                         }break;
                         }
                         if(inner_generated_error)goto end_instruction;
@@ -93,7 +99,7 @@ namespace x86a{
                         if(!Token::isLiteralType(type) || Token::getDataWidthFromTokenType(type) > operand.width){
                             goto end_instruction;
                         }
-                        OperandValue value = (OperandValue){0};
+                        OperandValue value = (OperandValue){.mode=AddressingMode::Immediate};
                         switch(type){
                         case Token::Type::Imm8:
                             value.u8 = (uint16_t)argument.getMetadata();
@@ -115,7 +121,7 @@ namespace x86a{
                         if(!Token::isRegisterType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
                             goto end_instruction;
                         }
-                        operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata()});
+                        operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata(),.mode=AddressingMode::Register });
                     }break;
 
                     default:
@@ -123,7 +129,7 @@ namespace x86a{
                     };
                     at++;
                 }
-                i = at;
+                m_At = at;
                 suitableInstruction = &instruction;
                 break;
 
@@ -133,7 +139,7 @@ namespace x86a{
             if(!suitableInstruction){
                 getDefaultLogger()->error("Failed to find suitable instruction for {}", mnemonic);
                 generated_error = true;
-                i++;
+                m_At++;
                 continue;
             }
 
@@ -148,15 +154,48 @@ namespace x86a{
             }
             getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", suitableInstruction->getMnemonic(), operands.size(), bytesWritten);
             std::string values;
-            for(size_t i = 0; i < bytesWritten; i++){
+            for(size_t i = 0; i < bytesWritten; m_At++){
                 values += std::format("{:>5}: {:X}\n", i, bytes[i]);
             }
             getDefaultLogger()->log("Instruction bytes\n{}", values);
-            for(size_t i = 0; i < bytesWritten; i++){
+            for(size_t i = 0; i < bytesWritten; m_At++){
                 section.addData(bytes[i]);
             }
             getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
         }
         return !generated_error;
+    }
+    std::optional<OperandValue> SectionGenerator::parseOperand(){
+        const auto& tokens = m_Tokenizer->getTokens();
+        Token token = m_Tokenizer->peek(m_At);
+        OperandValue value = (OperandValue){0};
+
+        switch(token.getType()){
+            case Token::Type::Index:{
+                if(token.getMetadata() != Token::Indexer::LeftBracket){
+                    getDefaultLogger()->error("Expected left bracket, got {}" , (char)token.getMetadata());
+                    return std::nullopt;
+                }
+            }break;
+            case Token::Type::Imm8:
+            case Token::Type::Imm16:
+            case Token::Type::Imm32:{
+                value.u32 = token.getMetadata();
+                value.mode = AddressingMode::Immediate;
+                return value;
+            }break;
+            case Token::Type::Reg8:
+            case Token::Type::Reg16:
+            case Token::Type::Reg32:{
+                value.u32 = token.getMetadata();
+                value.mode = AddressingMode::Register;
+                return value;
+            }break;
+            default:{
+                getDefaultLogger()->error("Unsupported operand type {}" , (int)token.getType());
+                return std::nullopt;
+            }
+        };
+        return std::nullopt;
     }
 }

@@ -19,18 +19,50 @@ namespace x86a{
         std::vector<char> m_Data;
         std::string m_Name;
     };
+
     class SectionContainer{
     public:
         struct StringHash {
             using is_transparent = void;
             [[nodiscard]] size_t operator()(const char *txt) const {
-                return std::hash<std::string_view>{}(txt);
+                //The FNV-1a Hash Algorithm
+                constexpr std::size_t fnv_prime = 1099511628211ULL;
+                constexpr std::size_t fnv_offset_basis = 14695981039346656037ULL;
+                
+                std::size_t hash = fnv_offset_basis;
+                for (size_t i = 0; i < strlen(txt); i++) {
+                    char c = txt[i];
+                    if(c >= 'a' && c <= 'z')c -= 'a' - 'A';
+                    hash ^= static_cast<std::size_t>(c);
+                    hash *= fnv_prime;
+                }
+                return hash;
             }
             [[nodiscard]] size_t operator()(std::string_view txt) const {
-                return std::hash<std::string_view>{}(txt);
+                //The FNV-1a Hash Algorithm
+                constexpr std::size_t fnv_prime = 1099511628211ULL;
+                constexpr std::size_t fnv_offset_basis = 14695981039346656037ULL;
+                
+                std::size_t hash = fnv_offset_basis;
+                for(char c : txt){
+                    if(c >= 'a' && c <= 'z')c -= 'a' - 'A';
+                    hash ^= static_cast<std::size_t>(c);
+                    hash *= fnv_prime;
+                }
+                return hash;
             }
             [[nodiscard]] size_t operator()(const std::string &txt) const {
-                return std::hash<std::string>{}(txt);
+                //The FNV-1a Hash Algorithm
+                constexpr std::size_t fnv_prime = 1099511628211ULL;
+                constexpr std::size_t fnv_offset_basis = 14695981039346656037ULL;
+                
+                std::size_t hash = fnv_offset_basis;
+                for(char c : txt){
+                    if(c >= 'a' && c <= 'z')c -= 'a' - 'A';
+                    hash ^= static_cast<std::size_t>(c);
+                    hash *= fnv_prime;
+                }
+                return hash;
             }
         };
         using SectionMap = std::unordered_map<std::string, Section,StringHash, std::equal_to<>>;
