@@ -12,6 +12,7 @@ namespace x86a{
 
         enum Type{
             Eof,
+            Keyword,
             Instruction,
             Symbol,
             String,

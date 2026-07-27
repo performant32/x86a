@@ -2,9 +2,7 @@
 
 #include "pch.h"
 #include "bitfields.h"
-#include <string_view>
 #include <type_traits>
-#include <unordered_map>
 
 namespace x86a{
     // Addressing mode per operand
@@ -40,6 +38,7 @@ namespace x86a{
             uint32_t* mu32;
             std::string_view symbol={};
         };
+        bool has_symbol = false;
     };
 
     struct Register{
@@ -92,6 +91,7 @@ namespace x86a{
         using InstructionMap = std::unordered_multimap<std::string_view, Instruction>;
         using InstructionIterator = InstructionMap::const_iterator;
 
+        virtual std::span<const char* const, std::dynamic_extent> getKeywords()const noexcept=0;
         const Register* getRegister(std::string_view name)const noexcept;
         std::optional<uint8_t> getRegisterId(std::string_view mnemonic)const;
 

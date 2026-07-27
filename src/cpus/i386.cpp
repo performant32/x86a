@@ -4,8 +4,15 @@
 #include "bitfields.h"
 #include <cstdlib>
 #include <ratio>
+#include <span>
 
 namespace x86a {
+    std::span<const char* const, std::dynamic_extent> I386::getKeywords()const noexcept{
+        auto keywords = (const char* const[]){
+            "section"
+        };
+        return std::span<const char*const>{keywords,sizeof(keywords)};
+    }
     I386::I386(){
         getDefaultLogger()->debug("Initializing I386 instruction set");
 

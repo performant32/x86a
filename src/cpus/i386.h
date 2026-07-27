@@ -39,6 +39,8 @@ namespace x86a {
         };
         I386();
 
+        std::span<const char* const, std::dynamic_extent> getKeywords()const noexcept;
+
         uint8_t createModRMByte(EffectiveAddress address, uint8_t register_opcode)const noexcept;
         std::optional<std::string> writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const override;
         const char* getName() const noexcept override {return "I386";}

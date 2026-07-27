@@ -27,7 +27,6 @@ namespace x86a{
                 continue;
             }
 
-            getDefaultLogger()->debug("Searching for instruction {}", file->getString(t.getStart(), t.getEnd()));
             std::string_view mnemonic(file->getString(t.getStart(), t.getEnd()));
             InstructionSet::InstructionIterator possibleInstruction = m_InstructionSet->getInstructionsFromMnemonic(mnemonic);
             auto end = m_InstructionSet->getInstructionsEndIterator();
@@ -60,7 +59,6 @@ namespace x86a{
                     getDefaultLogger()->debug("Argument {} has type {}, value {}", j, Token::getTokenName(argument.getType()), file->getString(argument.getStart(), argument.getEnd()));
                     const auto& operand = instruction.getOperands()[j];
                     switch(operand.mode){
-                    //case AddressingMode::Symbol:
                     case AddressingMode::DirectMemory:{
                         if(type != Token::Type::Index)goto end_instruction;
                         if((Token::Indexer)argument.getMetadata() != Token::Indexer::LeftBracket){
@@ -76,6 +74,12 @@ namespace x86a{
                         //TODO: Parse symbol as relocatable memory location
                         bool inner_generated_error = false;
                         switch (type) {
+                        case Token::Imm32:{
+                            operands.emplace_back((OperandValue){.u32=argument.getMetadata()});
+                        }break;
+                        case Token::Type::Symbol:{
+                            operands.emplace_back((OperandValue){.symbol=file->getString(argument.getStart(), argument.getEnd()), .has_symbol=true});
+                        }break;
                         default:{
                             getDefaultLogger()->error("Unexpected {}, did you mean '['?", (char)argument.getMetadata());
                             inner_generated_error = true;

@@ -16,5 +16,9 @@
 #include <filesystem>
 #include <unordered_set>
 #include <cstring>
-#include <elf.h>
+#include <array>
+#include <span>
 #include <functional>
+
+// TODO: other than posix support
+#include <elf.h>
