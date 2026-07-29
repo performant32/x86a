@@ -8,10 +8,12 @@ namespace x86a{
     // Addressing modes here specify what kind of operand instructions require and the kind of arguments passed to instructions
     // http://www.csc.villanova.edu/~mdamian/Past/csc2400fa16/notes/AssemblyAddressing.pdf
     enum class AddressingMode{
+        /// These handle the 'args' of the instruction
         Immediate,
         Register,
         DirectMemory,
         IndirectMemory,
+        /// These are used to define the layout of how an instruction should be
         RM,
         SIB
     };

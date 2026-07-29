@@ -20,6 +20,7 @@ namespace x86a{
         SectionGenerator(const InstructionSet& instruction_set);
         /// @brief returns true if success and false if failed. Output contains sections with their respective data
         bool generate(const Tokenizer& tokenizer, SectionContainer& output);
+        bool generate1();
     private:
         std::optional<OperandValue> parseOperand();
 

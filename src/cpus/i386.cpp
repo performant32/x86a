@@ -28,13 +28,13 @@ namespace x86a {
 
 #define CREATE_INSTRUCTION(name, ...)m_Instructions.insert(std::make_pair(name, Instruction(__VA_ARGS__)))
 
-        CREATE_INSTRUCTION("mov",
-            InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
-                std::vector{
-                    Operand{AddressingMode::Register, 32},
-                    Operand{AddressingMode::RM, 32}
-                }
-        );
+        // CREATE_INSTRUCTION("mov",
+        //     InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
+        //         std::vector{
+        //             Operand{AddressingMode::Register, 32},
+        //             Operand{AddressingMode::RM, 32}
+        //         }
+        // );
 
         CREATE_INSTRUCTION("mov",
             InstructionPrefix::None, 0xC7, "mov", Instruction::createEncoding(Instruction::Encoding::Immediate, Instruction::Encoding::ModMI),
@@ -54,7 +54,7 @@ namespace x86a {
 #undef CREATE_INSTRUCTION
     }
     uint8_t I386::createModRMByte(EffectiveAddress address, uint8_t register_opcode)const noexcept{
-        return BITS(register_opcode, 3, 5) | BITS((int)address, 0, 3);
+        return BITS((int)address, 3, 5) | BITS(register_opcode, 0, 3);
     }
 
     std::optional<std::string> I386::writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const{
@@ -86,7 +86,7 @@ namespace x86a {
         }
         write(opcode);
         auto encoding = instruction.getEncoding();
-        if(encoding & (int)Instruction::Encoding::Immediate){
+        if(encoding == (int)Instruction::Encoding::Immediate){
             for(size_t i = 0; i < arguments.size(); i++){
                 const Operand& operand = operands[i];
                 if(operand.mode != AddressingMode::Immediate)continue;
@@ -107,21 +107,31 @@ namespace x86a {
                 };
             }
         }
+        /// e.g. mov r/32 immediate
         if(encoding & (int)Instruction::Encoding::ModMI){
-            uint8_t register_id = arguments[1].u8;
-            AddressingMode mode = operands[0].mode;
-            switch(mode){
-            case AddressingMode::Immediate:{
-                write(createModRMByte(EffectiveAddress::Disp32, register_id));
-                uint32_t value = arguments[0].u32;
-                writeDWord(value);
-                break;
-            }
-            default:
-                getDefaultLogger()->error("Unsupported addressing mode {} for instruction + encoding! {} {}", (int)mode, instruction.getMnemonic(), (int)instruction.getEncoding());
-                std::abort();
+            const OperandValue& immediate = arguments[1];
+            const OperandValue& rm = arguments[0];
 
+            uint8_t rm_byte = 0;
+            switch(rm.mode){
+                case AddressingMode::Register:{
+                    rm_byte = createModRMByte((EffectiveAddress)(BITS(11,3, 2) | BITS(rm.u8, 0, 3)), 0);
+                }break;
+                default:
+                    getDefaultLogger()->error("Unsupported RM operand for instruction {}", instruction.getMnemonic());
+                    std::abort();
             }
+
+            write(rm_byte);
+            switch(operands[0].width){
+            case 32:
+                writeDWord(arguments[0].u32);
+                break;
+            default:
+                getDefaultLogger()->error("Instruction with MI encoding must have a supported address translation for its address space width");
+                std::abort();
+            };
+
         }
         if(encoding & (int)Instruction::Encoding::ModRM){
             bool has_rm_byte = false;

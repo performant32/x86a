@@ -59,7 +59,7 @@ namespace x86a{
             Tokenizer tokenizer;
             if(auto result = tokenizer.tokenize(&instruction_set, file)){
                 Tokenizer::ErrorType error = result.value();
-                getDefaultLogger()->error("{}:\tError: {}:{}, {}", file.getPath().c_str(), error.line, error.column, error.data);
+                getDefaultLogger()->error("{}:\tError: {}:{}, {}", file.getPath().string(), error.line, error.column, error.data);
                 tokenizer_stage_failed = true;
             }
             for(const auto& token : tokenizer.getTokens()){

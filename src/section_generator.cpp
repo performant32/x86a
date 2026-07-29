@@ -14,6 +14,8 @@ namespace x86a{
         getDefaultLogger()->debug("Symbol generator using instruction set {}", instruction_set.getName());
     }
     bool SectionGenerator::generate(const Tokenizer& tokenizer, SectionContainer& output){
+        m_Tokenizer = &tokenizer;
+
         std::string name = ".text";
 
         const ASMFile* file = tokenizer.getFile();
@@ -41,30 +43,36 @@ namespace x86a{
             const Instruction* suitableInstruction = nullptr;
             std::vector<OperandValue> operands;
 
+            size_t previousAt = ++m_At;
             while(possibleInstruction != end){
                 const auto& instruction = possibleInstruction->second;
                 getDefaultLogger()->debug("Got instruction {}", instruction.getMnemonic());
-                size_t at = m_At+1;
 
                 operands.clear();
                 for(size_t j = 0; j < instruction.getOperands().size(); j++){
                     if(j > 0){
-                        Token separator = tokenizer.peek(at);
+                        Token separator = tokenizer.peek(m_At);
                         if(separator.getType() != Token::Type::Separator){
                             getDefaultLogger()->error("Expected Separator got {}", file->getString(separator.getStart(), separator.getEnd()));
                             break;
                         }
-                        at++;
+                        m_At++;
                     }
-                    Token argument = tokenizer.peek(at);
+                    Token argument = tokenizer.peek(m_At);
                     Token::Type type = argument.getType();
                     getDefaultLogger()->debug("Argument {} has type {}, value {}", j, Token::getTokenName(argument.getType()), file->getString(argument.getStart(), argument.getEnd()));
+
                     const auto& operand = instruction.getOperands()[j];
                     AddressingMode mode = operand.mode;
-                    if(mode == AddressingMode::RM){
-
-                    }
                     switch(mode){
+                    case AddressingMode::RM:{
+                        std::optional<OperandValue> value = parseOperand();
+                        if(!value){
+                            generated_error = true;
+                            goto end_instruction;
+                        }
+                        operands.emplace_back(std::move(value.value()));
+                    }break;
                     case AddressingMode::DirectMemory:{
                         if(type != Token::Type::Index)goto end_instruction;
                         if((Token::Indexer)argument.getMetadata() != Token::Indexer::LeftBracket){
@@ -74,7 +82,7 @@ namespace x86a{
                             continue;
                         }
                         m_At++;
-                        argument = tokenizer.peek(at);
+                        argument = tokenizer.peek(m_At);
                         type = argument.getType();
 
                         //TODO: Parse symbol as relocatable memory location
@@ -94,6 +102,7 @@ namespace x86a{
                         }break;
                         }
                         if(inner_generated_error)goto end_instruction;
+                        m_At++;
                     }break;
                     case AddressingMode::Immediate:{
                         if(!Token::isLiteralType(type) || Token::getDataWidthFromTokenType(type) > operand.width){
@@ -116,24 +125,27 @@ namespace x86a{
                             std::abort();
                         }
                         operands.emplace_back(value);
+                        m_At++;
                     }break;
                     case AddressingMode::Register:{
                         if(!Token::isRegisterType(type) || Token::getDataWidthFromTokenType(type) != operand.width){
                             goto end_instruction;
                         }
                         operands.emplace_back(OperandValue{.register_id=(uint8_t)argument.getMetadata(),.mode=AddressingMode::Register });
+                        m_At++;
+
                     }break;
 
                     default:
+                        getDefaultLogger()->debug("Unsupported operand type for instruction, type {} data {}", (int)argument.getType(), file->getString(argument.getStart(), argument.getEnd()));
                         goto end_instruction;
                     };
-                    at++;
                 }
-                m_At = at;
                 suitableInstruction = &instruction;
                 break;
 
                 end_instruction:
+                m_At = previousAt;
                 ++possibleInstruction;
             }
             if(!suitableInstruction){
@@ -154,11 +166,11 @@ namespace x86a{
             }
             getDefaultLogger()->log("Instruction {} has {} arguments, wrote {} bytes", suitableInstruction->getMnemonic(), operands.size(), bytesWritten);
             std::string values;
-            for(size_t i = 0; i < bytesWritten; m_At++){
+            for(size_t i = 0; i < bytesWritten; i++){
                 values += std::format("{:>5}: {:X}\n", i, bytes[i]);
             }
             getDefaultLogger()->log("Instruction bytes\n{}", values);
-            for(size_t i = 0; i < bytesWritten; m_At++){
+            for(size_t i = 0; i < bytesWritten; i++){
                 section.addData(bytes[i]);
             }
             getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
@@ -167,6 +179,7 @@ namespace x86a{
     }
     std::optional<OperandValue> SectionGenerator::parseOperand(){
         const auto& tokens = m_Tokenizer->getTokens();
+        const ASMFile* file = m_Tokenizer->getFile();
         Token token = m_Tokenizer->peek(m_At);
         OperandValue value = (OperandValue){0};
 
@@ -176,12 +189,14 @@ namespace x86a{
                     getDefaultLogger()->error("Expected left bracket, got {}" , (char)token.getMetadata());
                     return std::nullopt;
                 }
+                return std::nullopt;
             }break;
             case Token::Type::Imm8:
             case Token::Type::Imm16:
             case Token::Type::Imm32:{
                 value.u32 = token.getMetadata();
                 value.mode = AddressingMode::Immediate;
+                m_At++;
                 return value;
             }break;
             case Token::Type::Reg8:
@@ -189,10 +204,11 @@ namespace x86a{
             case Token::Type::Reg32:{
                 value.u32 = token.getMetadata();
                 value.mode = AddressingMode::Register;
+                m_At++;
                 return value;
             }break;
             default:{
-                getDefaultLogger()->error("Unsupported operand type {}" , (int)token.getType());
+                getDefaultLogger()->error("Unsupported operand type {}, got {}" , (int)token.getType(), file->getString(token.getStart(), token.getEnd()));
                 return std::nullopt;
             }
         };
