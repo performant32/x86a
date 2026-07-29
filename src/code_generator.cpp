@@ -12,7 +12,7 @@ namespace x86a{
         const auto& path = sectionsContainer.getFile()->getPath();
         std::ofstream file(output, std::ios::out | std::ios::binary);
         if(!file){
-            return std::format("Failed to open file ", output.string());
+            return std::format("Failed to open file \"{}\"", output.string());
         }
         std::vector<char> file_data;
         file_data.resize(sizeof(Elf32_Ehdr));

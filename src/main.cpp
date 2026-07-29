@@ -8,6 +8,7 @@
 #include "section_generator.h"
 #include "code_generator.h"
 #include "tokenizer.h"
+#include <filesystem>
 
 using namespace x86a;
 int main(int argc, char** argv){
@@ -95,12 +96,15 @@ namespace x86a{
         CodeGenerator code_generator(instruction_set);
         // TODO: pass flags to generator
         for(const auto& section_map : sections){
-            auto path = section_map.getFile()->getPath();
-            auto file_output = path.replace_extension(".o");
+            auto file_output = std::filesystem::path(output_path) / std::filesystem::path(section_map.getFile()->getPath()).filename().replace_extension(".o");
+            const auto& parent_directory = file_output.parent_path();
+            if(!std::filesystem::exists(parent_directory)){
+                std::filesystem::create_directory(parent_directory);
+            }
             if(auto result = code_generator.generate(section_map, file_output)){
                 getDefaultLogger()->error("Code generation failed: {}", result.value());
                 code_generation_failed = true;
-                std::filesystem::remove(path);
+                std::filesystem::remove(file_output);
             }
 
         }
