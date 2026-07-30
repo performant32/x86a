@@ -3,6 +3,7 @@
 #include "instruction_set.h"
 #include "bitfields.h"
 #include "macros.h"
+#include <complex>
 
 namespace x86a {
     std::span<const char* const, std::dynamic_extent> I386::getKeywords()const noexcept{
@@ -14,8 +15,6 @@ namespace x86a {
     I386::I386(){
         getDefaultLogger()->debug("Initializing I386 instruction set");
 
-        m_Registers.insert(std::make_pair("di", (Register){0b111, Register::Type::GeneralPurpose, 16}));
-        m_Registers.insert(std::make_pair("bh", (Register){0b111, Register::Type::GeneralPurpose, 8}));
 
         m_Registers.insert(std::make_pair("ax",  (Register){0b000, Register::Type::GeneralPurpose, 16}));
         m_Registers.insert(std::make_pair("eax", (Register){0b000, Register::Type::GeneralPurpose, 32}));
@@ -25,16 +24,20 @@ namespace x86a {
 
         m_Registers.insert(std::make_pair("di",  (Register){0b111, Register::Type::GeneralPurpose, 16}));
         m_Registers.insert(std::make_pair("edi", (Register){0b111, Register::Type::GeneralPurpose, 32}));
+        m_Registers.insert(std::make_pair("bh",  (Register){0b111, Register::Type::GeneralPurpose, 8}));
+
+        m_Registers.insert(std::make_pair("cx",  (Register){0b1, Register::Type::GeneralPurpose, 16}));
+        m_Registers.insert(std::make_pair("ecx", (Register){0b1, Register::Type::GeneralPurpose, 32}));
 
 #define CREATE_INSTRUCTION(name, ...)m_Instructions.insert(std::make_pair(name, Instruction(__VA_ARGS__)))
 
-        // CREATE_INSTRUCTION("mov",
-        //     InstructionPrefix::None, 0x8B, "mov", Instruction::Encoding::ModRM,
-        //         std::vector{
-        //             Operand{AddressingMode::Register, 32},
-        //             Operand{AddressingMode::RM, 32}
-        //         }
-        // );
+        CREATE_INSTRUCTION("mov",
+            InstructionPrefix::None, 0x8B, "mov", Instruction::createEncoding(Instruction::Encoding::Register, Instruction::Encoding::ModRM),
+                std::vector{
+                    Operand{AddressingMode::Register, 32},
+                    Operand{AddressingMode::RM, 32}
+                }
+        );
 
         CREATE_INSTRUCTION("mov",
             InstructionPrefix::None, 0xC7, "mov", Instruction::createEncoding(Instruction::Encoding::Immediate, Instruction::Encoding::ModMI),
@@ -53,8 +56,28 @@ namespace x86a {
 
 #undef CREATE_INSTRUCTION
     }
+    std::string_view I386::getEffectiveAddressName(EffectiveAddress address)const noexcept{
+        switch(address){
+            case EffectiveAddress::EAXPtr:return "EAXPtr";
+            case EffectiveAddress::ECXPtr:return "ECXPtr";
+            case EffectiveAddress::EDXPtr:return "EDXPtr";
+            case EffectiveAddress::EBXPtr:return "EBXPtr";
+            case EffectiveAddress::ESIPtr:return "ESIPtr";
+            case EffectiveAddress::EDIPtr:return "EDIPtr";
+            case EffectiveAddress::EAX:return "EAX";
+            case EffectiveAddress::EBX:return "EBX";       
+            case EffectiveAddress::ECX:return "ECX";
+
+            case EffectiveAddress::SIB:return "SIB";
+            case EffectiveAddress::Disp32:return "Disp32";
+            default:
+                return "Invalid Effective Address";
+        }
+    }
     uint8_t I386::createModRMByte(EffectiveAddress address, uint8_t register_opcode)const noexcept{
-        return BITS((int)address, 3, 5) | BITS(register_opcode, 0, 3);
+        return BITS(EXTRACT_BITS((int)address, 3, 2), 6, 2) | BITS(register_opcode, 3, 3) | BITS(EXTRACT_BITS((int)address, 0, 3), 0, 3);
+
+        //return BITS((int)address, 3, 5) | BITS(register_opcode, 0, 3);
     }
 
     std::optional<std::string> I386::writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const{
@@ -84,9 +107,64 @@ namespace x86a {
         if(prefix != InstructionPrefix::None){
             write((uint8_t)prefix);
         }
+        int opcode_at = at;
         write(opcode);
+
         auto encoding = instruction.getEncoding();
-        if(encoding == (int)Instruction::Encoding::Immediate){
+        /// e.g. mov r/32 immediate
+        bool write_register_opcode = true;
+        if(encoding & (int)Instruction::Encoding::Register){
+            // uint8_t output_register = 0;
+            // for(const auto& argument : arguments){
+            //     if(argument.mode != AddressingMode::Register)continue;
+            //     output_register = argument.u8;
+            // }
+            // write_register_opcode = false;
+            //output[opcode_at] |= output_register;
+        }
+        if(encoding & (int)Instruction::Encoding::ModMI){
+            const OperandValue& immediate = arguments[1];
+            const OperandValue& rm = arguments[0];
+
+            uint8_t rm_byte = 0;
+            switch(rm.mode){
+                case AddressingMode::Register:{
+                    //rm_byte = BITS(11, 3, 2) | BITS(0, 3, 3) | BITS(rm.u8, 3, 0);
+                    rm_byte = createModRMByte((EffectiveAddress)(BITS(0b11, 3, 2) | BITS(rm.u8, 0, 3)), 0);
+                }break;
+                default:
+                    getDefaultLogger()->error("Unsupported RM operand for instruction {}", instruction.getMnemonic());
+                    std::abort();
+            }
+
+            write(rm_byte);
+        }
+        if(encoding & (int)Instruction::Encoding::ModRM){
+            uint8_t register_id = 0;
+            if(write_register_opcode){
+                const OperandValue& r = arguments[0];
+                if(r.mode != AddressingMode::Register){
+                    getDefaultLogger()->error("Expected operand 2 to be of type Register, instead got {}", getAddressingModeName(r.mode));
+                    return std::nullopt;
+                }
+                register_id = r.u8;
+                output[opcode_at] += BITS(register_id, 0, 3);
+            }
+
+            const OperandValue& rm = arguments[1];
+            switch(rm.mode){
+            //case AddressingMode::RM:{
+                // some sort of [eax]
+            //}break;
+            case x86a::AddressingMode::Register:{
+                write(createModRMByte((EffectiveAddress)(BITS(0b11, 3, 2) | BITS(rm.u8, 0, 3)), 0));
+            }break;
+            default:{
+                getDefaultLogger()->error("Unsupported addressing mode for instruction {1}, mode {0}", getAddressingModeName(rm.mode), instruction.getMnemonic());
+            }break;
+            }
+        }
+        if(encoding & (int)Instruction::Encoding::Immediate){
             for(size_t i = 0; i < arguments.size(); i++){
                 const Operand& operand = operands[i];
                 if(operand.mode != AddressingMode::Immediate)continue;
@@ -105,64 +183,6 @@ namespace x86a {
                         getDefaultLogger()->error("");
                     }break;
                 };
-            }
-        }
-        /// e.g. mov r/32 immediate
-        if(encoding & (int)Instruction::Encoding::ModMI){
-            const OperandValue& immediate = arguments[1];
-            const OperandValue& rm = arguments[0];
-
-            uint8_t rm_byte = 0;
-            switch(rm.mode){
-                case AddressingMode::Register:{
-                    rm_byte = createModRMByte((EffectiveAddress)(BITS(11,3, 2) | BITS(rm.u8, 0, 3)), 0);
-                }break;
-                default:
-                    getDefaultLogger()->error("Unsupported RM operand for instruction {}", instruction.getMnemonic());
-                    std::abort();
-            }
-
-            write(rm_byte);
-            switch(operands[0].width){
-            case 32:
-                writeDWord(arguments[0].u32);
-                break;
-            default:
-                getDefaultLogger()->error("Instruction with MI encoding must have a supported address translation for its address space width");
-                std::abort();
-            };
-
-        }
-        if(encoding & (int)Instruction::Encoding::ModRM){
-            bool has_rm_byte = false;
-            const OperandValue* source = nullptr;
-            const OperandValue* dest = nullptr;
-            for(size_t i = 0; i < operands.size(); i++){
-                const auto& operand = operands[i];
-                uint32_t reg_t = 0;
-                
-                if(operand.mode == AddressingMode::RM){
-                    //until we parse symbols
-                    ASSERT(operands.size() == 2, "INVALID OPERANDS PASSED TO RM");
-                    has_rm_byte = true;
-                    break;
-                }
-            }
-
-            if(!has_rm_byte){
-                return std::format("Expected R/M for instruction ", instruction.getMnemonic());
-            }
-            uint8_t register_id = arguments[0].u8;
-            AddressingMode mode = operands[1].mode;
-            switch(mode){
-            case AddressingMode::Register:{
-                write(createModRMByte((EffectiveAddress)(BITS(11, 3, 2) | register_id), arguments[1].u8));
-                break;
-            }
-            default:
-                getDefaultLogger()->error("Unsupported addressing mode {} for instruction + encoding! {} {}", (int)mode, instruction.getMnemonic(), (int)instruction.getEncoding());
-                std::abort();
-
             }
         }
         *bytesWritten = at;
