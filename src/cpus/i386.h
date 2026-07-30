@@ -2,7 +2,7 @@
 
 #include "bitfields.h"
 #include "instruction_set.h"
-
+#include "macro_helper.h"
 namespace x86a {
     class I386: public InstructionSet{
     public:
@@ -24,13 +24,17 @@ namespace x86a {
             AX =        BITS(0b11, 3, 2),
             AL =        BITS(0b11, 3, 2),
 
+            ECX=        BITS(0b11, 3, 2) | 0b1,
+            CX =        BITS(0b11, 3, 2) | 0b1,
+            CL =        BITS(0b11, 3, 2) | 0b1,
+
             EBX=        BITS(0b11, 3, 2) | 0b11,
             BX =        BITS(0b11, 3, 2) | 0b11,
             BL =        BITS(0b11, 3, 2) | 0b11,
 
-            ECX=        BITS(0b11, 3, 2) | 0b11,
-            CX =        BITS(0b11, 3, 2) | 0b11,
-            CL =        BITS(0b11, 3, 2) | 0b11,
+            EDX=        BITS(0b11, 3, 2) | 0b10,
+            DX =        BITS(0b11, 3, 2) | 0b10,
+            DL =        BITS(0b11, 3, 2) | 0b10,
 
             //[--][--]
             SIB         =0b100,
@@ -38,6 +42,8 @@ namespace x86a {
             
         };
         I386();
+
+        std::string_view getEffectiveAddressName(EffectiveAddress address)const noexcept;
 
         std::span<const char* const, std::dynamic_extent> getKeywords()const noexcept;
 

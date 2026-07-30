@@ -71,6 +71,7 @@ namespace x86a{
                             generated_error = true;
                             goto end_instruction;
                         }
+                        if(value.value().mode == AddressingMode::Immediate)goto end_instruction;
                         operands.emplace_back(std::move(value.value()));
                     }break;
                     case AddressingMode::DirectMemory:{
@@ -175,6 +176,7 @@ namespace x86a{
             }
             getDefaultLogger()->log("Found suitable instruction {} with {} args", mnemonic, operands.size());
         }
+        getDefaultLogger()->log(".text section has {} bytes", output.getSection(".text").getData().size());
         return !generated_error;
     }
     std::optional<OperandValue> SectionGenerator::parseOperand(){

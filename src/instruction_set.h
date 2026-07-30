@@ -66,8 +66,12 @@ namespace x86a{
             ModRM=BIT(2),
             ModMR=BIT(3),
             ModMI=BIT(4),
-            ModRMPlusSIB=BIT(5)
+            ModRMPlusSIB=BIT(5),
+            Register, // /r
         };
+        /// @brief returns a combination of all encodings used for the instruction
+        static std::string getEncodingName(int encoding);
+        static const char* getEncodingName(Encoding encoding);
     public:
         Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, Encoding encoding, std::vector<Operand>&& operands);
         Instruction(InstructionPrefix prefix, uint32_t opcode, std::string_view mnemonic, int32_t encoding, std::vector<Operand>&& operands);
@@ -81,6 +85,7 @@ namespace x86a{
 
         uint32_t getOpcode() const noexcept{return m_Opcode;}
         int32_t getEncoding()const noexcept{return m_Encoding;}
+
         std::string_view getMnemonic() const noexcept{return m_Mnemonic;}
         const std::vector<Operand>& getOperands() const noexcept{return m_Operands;}
     private:
@@ -98,6 +103,8 @@ namespace x86a{
         virtual std::span<const char* const, std::dynamic_extent> getKeywords()const noexcept=0;
         const Register* getRegister(std::string_view name)const noexcept;
         std::optional<uint8_t> getRegisterId(std::string_view mnemonic)const;
+
+        static std::string_view getAddressingModeName(AddressingMode addressingMode)noexcept;
 
         /// @brief writes the instruction and operands to the output and returns bytes written
         virtual std::optional<std::string> writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const =0;
