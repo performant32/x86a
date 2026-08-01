@@ -38,6 +38,16 @@ namespace x86a{
             uint8_t* mu8;
             uint16_t* mu16;
             uint32_t* mu32;
+            uint64_t u64;
+            struct{
+                uint8_t index_rid;
+                uint8_t base_rid;
+                uint8_t offset;
+            }sib;
+            struct{
+                uint64_t low;
+                uint64_t high;
+            }data;
             std::string_view symbol={};
         };
         AddressingMode mode;

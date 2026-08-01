@@ -180,10 +180,12 @@ namespace x86a{
         return !generated_error;
     }
     std::optional<OperandValue> SectionGenerator::parseOperand(){
-        const auto& tokens = m_Tokenizer->getTokens();
         const ASMFile* file = m_Tokenizer->getFile();
         Token token = m_Tokenizer->peek(m_At);
         OperandValue value = (OperandValue){0};
+
+        bool using_segment = false;
+        uint8_t segment_selector=0;
 
         switch(token.getType()){
             case Token::Type::Index:{
@@ -191,7 +193,26 @@ namespace x86a{
                     getDefaultLogger()->error("Expected left bracket, got {}" , (char)token.getMetadata());
                     return std::nullopt;
                 }
-                return std::nullopt;
+                m_At++;
+                std::optional<OperandValue> r = parseRegister();
+                if(!r){
+                    getDefaultLogger()->error("Error, expected register following '['");
+                    return std::nullopt;
+                }
+                value.mode = AddressingMode::IndirectMemory;
+                value.sib.index_rid = r.value().u8;
+                token = m_Tokenizer->peek(m_At);
+                if(token.getType() != Token::Type::Index && token.getMetadata() == Token::Indexer::RightBracket){
+                    getDefaultLogger()->error("Expected left bracket, got {}" , (char)token.getMetadata());
+                    return std::nullopt;
+                }
+                m_At++;
+            }break;
+            case Token::Type::Symbol:{
+                value.symbol = file->getString(token.getStart(), token.getEnd());
+                value.has_symbol = true;
+                value.mode = AddressingMode::DirectMemory;
+                m_At++;
             }break;
             case Token::Type::Imm8:
             case Token::Type::Imm16:
@@ -204,16 +225,30 @@ namespace x86a{
             case Token::Type::Reg8:
             case Token::Type::Reg16:
             case Token::Type::Reg32:{
-                value.u32 = token.getMetadata();
-                value.mode = AddressingMode::Register;
-                m_At++;
-                return value;
+                return parseRegister();
             }break;
             default:{
                 getDefaultLogger()->error("Unsupported operand type {}, got {}" , (int)token.getType(), file->getString(token.getStart(), token.getEnd()));
                 return std::nullopt;
             }
         };
-        return std::nullopt;
+        return value;
+    }
+    std::optional<OperandValue> SectionGenerator::parseRegister(){
+        const ASMFile* file = m_Tokenizer->getFile();
+        Token token = m_Tokenizer->peek(m_At);
+        switch(token.getType()){
+            case Token::Type::Reg8:
+            case Token::Type::Reg16:
+            case Token::Type::Reg32:{
+                OperandValue value = (OperandValue){0};
+                value.u32 = token.getMetadata();
+                value.mode = AddressingMode::Register;
+                m_At++;
+                return value;
+            }
+            default:
+                return std::nullopt;
+        }
     }
 }

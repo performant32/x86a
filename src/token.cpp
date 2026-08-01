@@ -49,36 +49,25 @@ namespace x86a{
     const char* Token::getTokenName(TokenType type){
         using TokenType = Token::Type;
         switch (type) {
-            case TokenType::Instruction:
-                return "Instruction";
-            case TokenType::String:
-                return "String";
-            case TokenType::Symbol:
-                return "Symbol";
-            case TokenType::Separator:
-                return "Separator";
-            case TokenType::Imm8:
-                return "Imm8";
-            case TokenType::Imm16:
-                return "Imm16";
-            case TokenType::Imm32:
-                return "Imm32";
-            case TokenType::Imm64:
-                return "Imm64";
-            case TokenType::Mem8:
-                return "Mem8";
-            case TokenType::Mem16:
-                return "Mem16";
-            case TokenType::Mem32:
-                return "Mem32";
-            case TokenType::Reg8:
-                return "Reg8";
-            case TokenType::Reg16:
-                return "Reg16";
-            case TokenType::Reg32:
-                return "Reg32";
-            case TokenType::Eof:
-                return "EOF";
+            case TokenType::Instruction:return "Instruction";
+            case TokenType::Keyword:return "Keyword";
+            case TokenType::String:return "String";
+            case TokenType::Symbol:return "Symbol";
+            case TokenType::Separator:return "Separator";
+            case TokenType::Imm8:return "Imm8";
+            case TokenType::Imm16:return "Imm16";
+            case TokenType::Imm32:return "Imm32";
+            case TokenType::Imm64:return "Imm64";
+            case TokenType::Mem8:return "Mem8";
+            case TokenType::Mem16:return "Mem16";
+            case TokenType::Mem32:return "Mem32";
+            case TokenType::Reg8:return "Reg8";
+            case TokenType::Reg16:return "Reg16";
+            case TokenType::Reg32:return "Reg32";
+            case TokenType::Index:return "Index";
+            case TokenType::Offset:return "Offset";
+            case TokenType::Scale:return "scale";
+            case TokenType::Eof:return "EOF";
             default:
                 x86a::getDefaultLogger()->error("Unsupported token type {}", (int)type);
                 std::abort();

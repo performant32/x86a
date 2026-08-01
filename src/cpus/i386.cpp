@@ -80,8 +80,9 @@ namespace x86a {
     }
     uint8_t I386::createModRMByte(EffectiveAddress address, uint8_t register_opcode)const noexcept{
         return BITS(EXTRACT_BITS((int)address, 3, 2), 6, 2) | BITS(register_opcode, 3, 3) | BITS(EXTRACT_BITS((int)address, 0, 3), 0, 3);
-
-        //return BITS((int)address, 3, 5) | BITS(register_opcode, 0, 3);
+    }
+    uint8_t I386::createSIBByte(uint8_t mod, uint8_t index, uint8_t base)const noexcept{
+        return BITS(mod, 6, 2) | BITS(index, 0, 3) | BITS(base, 3, 3);
     }
 
     std::optional<std::string> I386::writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const{
@@ -116,48 +117,51 @@ namespace x86a {
 
         auto encoding = instruction.getEncoding();
         /// e.g. mov r/32 immediate
-        bool write_register_opcode = false;
-        if(encoding & (int)Instruction::Encoding::Register){
-            write_register_opcode = true;
-        }
+        bool write_register_opcode = encoding & (int)Instruction::Encoding::Register;
         if(encoding & (int)Instruction::Encoding::ModMI){
             const OperandValue& immediate = arguments[1];
             const OperandValue& rm = arguments[0];
 
-            uint8_t rm_byte = 0;
             switch(rm.mode){
                 case AddressingMode::Register:{
-                    //rm_byte = BITS(11, 3, 2) | BITS(0, 3, 3) | BITS(rm.u8, 3, 0);
-                    rm_byte = createModRMByte((EffectiveAddress)(BITS(0b11, 3, 2) | BITS(rm.u8, 0, 3)), 0);
+                    write(createModRMByte((EffectiveAddress)(BITS(0b11, 3, 2) | BITS(rm.u8, 0, 3)), 0));
+                }break;
+                case AddressingMode::DirectMemory:{
+                    write(createModRMByte((EffectiveAddress)(BITS(0b00, 3, 2) | BITS(0b100, 0, 3)), 0));
+                    write(createSIBByte(0b0, 0b100, 0b101));
+                    writeDWord(0);
                 }break;
                 default:
                     getDefaultLogger()->error("Unsupported RM operand for instruction {}", instruction.getMnemonic());
                     std::abort();
             }
-
-            write(rm_byte);
         }
         if(encoding & (int)Instruction::Encoding::ModRM){
             uint8_t register_id = 0;
-            if(write_register_opcode){
-                const OperandValue& r = arguments[0];
-                if(r.mode != AddressingMode::Register){
-                    getDefaultLogger()->error("Expected operand 2 to be of type Register, instead got {}", getAddressingModeName(r.mode));
-                    return std::nullopt;
-                }
-                register_id = r.u8;
-                //output[opcode_at] += BITS(register_id, 0, 3)J;
-            }else{
-                getDefaultLogger()->error("Instruction with RM doesnt have /r");
-                std::abort();
+            const OperandValue& r = arguments[0];
+            switch(r.mode){
+                case AddressingMode::Register:{
+                    register_id = r.u8;
+                }break;
+                default:
+                    getDefaultLogger()->error("Unsupported Register operand for instruction {}", instruction.getMnemonic());
+                    std::abort();
             }
 
             const OperandValue& rm = arguments[1];
             switch(rm.mode){
-            //case AddressingMode::RM:{
-                // some sort of [eax]
-            //}break;
-            case x86a::AddressingMode::Register:{
+            case AddressingMode::IndirectMemory:{
+                uint8_t index_register = rm.sib.index_rid;
+                write(createModRMByte((EffectiveAddress)(BITS(0b00, 3, 2) | BITS(index_register, 0, 3)), register_id));
+                //write(createSIBByte(0,index_register, 0b101));
+                //writeDWord(0);
+            }break;
+            case AddressingMode::DirectMemory:{
+                write(createModRMByte((EffectiveAddress)(BITS(0b00, 3, 2) | BITS(0b100, 0, 3)), register_id));
+                write(createSIBByte(0,0b100, 0b101));
+                writeDWord(0);
+            }break;
+            case AddressingMode::Register:{
                 write(createModRMByte((EffectiveAddress)(BITS(0b11, 3, 2) | BITS(rm.u8, 0, 3)), register_id));
             }break;
             default:{

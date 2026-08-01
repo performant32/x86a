@@ -48,6 +48,7 @@ namespace x86a {
         std::span<const char* const, std::dynamic_extent> getKeywords()const noexcept;
 
         uint8_t createModRMByte(EffectiveAddress address, uint8_t register_opcode)const noexcept;
+        uint8_t createSIBByte(uint8_t mod, uint8_t index, uint8_t base)const noexcept;
         std::optional<std::string> writeInstructionBytes(uint8_t* output, int* bytesWritten, const Instruction& instruction, const std::vector<OperandValue>& arguments)const override;
         const char* getName() const noexcept override {return "I386";}
     };

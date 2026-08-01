@@ -87,7 +87,7 @@ namespace x86a {
                         metadata=(uint8_t)it.value();
                     }
                     else
-                    type = Token::Type::Symbol;
+                        type = Token::Type::Symbol;
                 }
                 Token token(str_start, str_end, type, metadata);
                 m_Tokens.emplace_back(token);

@@ -23,6 +23,7 @@ namespace x86a{
         bool generate1();
     private:
         std::optional<OperandValue> parseOperand();
+        std::optional<OperandValue> parseRegister();
 
         size_t m_At=0;
 
